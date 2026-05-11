@@ -1,0 +1,824 @@
+(736)企业风险扫描
+说 明 文 档
+版本号：V1.3
+企查查科技股份有限公司
+2025-07-24
+企业风险扫描
+ 2 / 31
+企查查开放平台用户参考文档版本信息
+序号版本号 修订日期 修订内容
+1V1.0 2020-04-21 初版
+2V1.1 2021-07-30 修改企业上市类型，上市判断依据：A 股、中
+概股、港股、科创板、新三板、新四板
+3V1.2 2024-11-28 返回结果：
+1、增加“注册资本数额(RegisteredCapital)”
+2、增加“注册资本单位(RegisteredCapitalUnit)”
+3、增加“注册资本币种(RegisteredCapitalCCY)”
+4、增加“实缴出资额数额(PaidUpCapital)”
+5、增加“实缴出资额单位(PaidUpCapitalUnit)”
+6、增加“实缴出资额币种(PaidUpCapitalCCY)”
+7、增加“认缴出资额数额(Partners.SubscribedCapital)”
+8、增加“认缴出资额单位(Partners.SubscribedCapitalUnit)”
+9、增加“认缴出资额币种(Partners.SubscribedCapitalCCY)”
+10、增加“实缴出资额数额(Partners.PaidUpCapital)”
+11、增加“实缴出资额单位(Partners.PaidUpCapitalUnit)”
+12、增加“实缴出资额币种(Partners.PaidUpCapitalCCY)”
+4V1.3 2025-07-24 返回结果：增加“委派代表(DesignatedRepresentativeList)”
+企业风险扫描
+ 3 / 31
+企查查开放平台用户参考
+企业风险扫描
+ 4 / 31
+企查查开放平台用户参考目录
+1、接口介绍 ........................................................................................................................... 5
+2、阅读对象 ........................................................................................................................... 5
+3、服务流程 ........................................................................................................................... 5
+4、应用场景 ........................................................................................................................... 5
+5、收费说明 ........................................................................................................................... 5
+6、特别备注 ........................................................................................................................... 5
+7、接口描述 ........................................................................................................................... 6
+7.1接口请求方式 ..................................................................................................................................... 6
+7.2接口说明 ............................................................................................................................................. 6
+7.2.1方法列表 .................................................................................................................................... 6
+7.3具体方法介绍 ..................................................................................................................................... 6
+7.3.1企业风险扫描 ............................................................................................................................ 6
+8、请求状态码 ..................................................................................................................... 30
+8.1有效请求状态码 .............................................................................................................................. 30
+8.2无效请求状态码 .............................................................................................................................. 30
+企业风险扫描
+ 5 / 31
+企查查开放平台用户参考1、接口介绍
+当前接口既包含企业工商信息（涵盖工商照面、股东信息（含股比） 、主要
+人员、分支机构、变更信息、行业分类、企业画像等） ，又涵盖了企业风险类相
+关信息，如行政处罚、经营异常、失信被执行人、被执行人、动产抵押、清算、股权出质、抽查检查、纳税信用等信息。全面维度查询，让您一次查询获取企业所有信息。
+2、阅读对象
+具有一定开发经验的开发者。
+3、服务流程
+4、应用场景
+当前接口既包含企业工商信息（涵盖工商照面、股东信息（含股比） 、主要
+人员、分支机构、变更信息、行业分类、企业画像等） ，又涵盖了企业风险类相
+关信息，如行政处罚、经营异常、失信被执行人、被执行人、动产抵押、清算、股权出质、抽查检查、纳税信用等信息。全面维度查询，让您一次查询获取企业所有信息。
+5、收费说明
+请求计费
+6、特别备注
+暂无
+企业风险扫描
+ 6 / 31
+企查查开放平台用户参考7、接口描述
+7.1接口请求方式
+参数名 类型 传递方式 说明
+Token String http header 头 验证加密值 见加密约定
+Timespan String http header 头 精确到秒的 Unix时间戳
+SecretKey String 不传递 密钥，请妥善保管好
+加密约定：
+Token：key + Timespan +  SecretKey 组成的 32位md5加密的大写字符串
+备注：SecretKey、Key 都可以在企查查开放平台官网获取
+7.2接口说明
+当前所有的接口使用说明将放到企查查开放平台网站(openapi.qcc.com)，
+具体以网站公布为准。此文档仅做全面使用时参考。
+接口地址： https://api.qichacha.com/ECIV4/Search?key=Key 
+7.2.1 方法列表
+下面列表是当前接口对外提供的子方法:
+接口名 方法名 备注
+企业风险扫描 GetInfo 企业风险扫描
+7.3具体方法介绍
+7.3.1 企业风险扫描
+接口地址：
+https://api.qichacha.com/ECIInfoOverview/GetInfo
+支持格式：JSON
+请求方法：GET
+请求示例：
+企业风险扫描
+ 7 / 31
+企查查开放平台用户参考https://api.qichacha.com/ECIInfoOverview/GetInfo?key=AppKey&searchKey=XXXXXX
+请求参数(Query)：
+名称 类型 必填 说明
+key String Y 应用APPKEY（我的接口页面查询）
+searchKey String Y 搜索关键词（统一社会信用代码、企业名称）
+返回参数：
+Result
+字段名称 类型 长度 说明
+PermissionInfo List<Object> - 行政许可【其他】 （保留字段）
+Penalty List<Object> - 行政处罚（返回前 100条）
+Exceptions List<Object> - 经营异常（返回前 100条）
+ShiXinItems List<Object> - 失信（返回前 100条）
+ZhiXingItems List<Object> - 执行（返回前 100条）
+MPledge List<Object> - 动产抵押（返回前 100条）
+Liquidation Object - 清算
+Pledge List<Object> - 股权出质（返回前 100条）
+SpotCheck List<Object> - 抽查检查（返回前 100条）
+CompanyTaxCreditItems
+List<Object> - 纳税信用等级
+CompanyProducts List<Object> - 公司产品（返回前 10条）
+PermissionEciInfo
+List<Object> - 行政许可（返回前 100条）
+PenaltyCreditChina
+List<Object> - 行政处罚【工商局 2】（保留字
+段）
+Partners List<Object> - 工商登记股东信息（返回前100条）
+企业风险扫描
+ 8 / 31
+企查查开放平台用户参考Employees List<Object> - 主要人员（返回前 100条）
+Branches List<Object> - 分支机构（返回前 100条）
+ChangeRecords List<Object> - 变更信息（返回前 100条）
+ContactInfo Object - 联系信息
+Industry Object - 国民行业分类
+Area Object - 行政区域
+RevokeInfo Object - 注销吊销信息
+EmergingIndustyList
+List<Object> - 新兴行业分类（保留字段）
+InsuredCount String 32 参保人数
+EnglishName String 1000 英文名
+PersonScope String 32 人员规模
+IXCode String 50 进出口企业代码
+TagList List<Object> - 企业标签/企业画像
+ARContactList List<Object> - 最新企业年报中的联系方式
+EconKindCodeList
+List<String> - 企业类型数组
+KeyNo String 100 主键
+Name String 1000 企业名称
+No String 200 根据企业性质返回不同值（对中国境内企业（EntType=0/1/4/7/9/10/11）返回工商注册号，对中国香港企业返回企业编号，对中国台湾企业返回企业编号）
+BelongOrg String 500 登记机关
+OperId String 100 法定代表人 ID
+OperName String 1000 法定代表人名称
+DesignatedRepresentativeList
+List<Object> - 委派代表
+企业风险扫描
+ 9 / 31
+企查查开放平台用户参考StartDate String 50 成立日期
+EndDate String 50 吊销日期（保留字段）
+Status String 100 登记状态
+Province String 32 省份
+UpdatedDate String 50 更新日期
+CreditCode String 50 根据企业性质返回不同值（对中国境内企业（EntType=0/1/4/7/9/10/11）返回统一社会信用代码，对中国香港企业返回商业登记号码）
+RegistCapi String 50 注册资本
+RegisteredCapital
+String 50 注册资本数额
+RegisteredCapitalUnit
+String 50 注册资本单位
+RegisteredCapitalCCY
+String 50 注册资本币种
+EconKind String 100 企业类型
+Address String 1000 注册地址
+Scope String 5000 经营范围
+TermStart String 50 营业期限始
+TermEnd String 50 营业期限至
+CheckDate String 50 核准日期
+OrgNo String 50 组织机构代码
+IsOnStock String 5 是否上市（0-未上市，1-上市）
+StockNumber String 32 股票代码（若 A股和港股同时
+存在，优先返回 A股代码）
+StockType String 10 上市类型（A 股、港股、美股、
+新三板、新四板）
+企业风险扫描
+ 10 / 31
+企查查开放平台用户参考OriginalName List<Object> - 曾用名
+ImageUrl String 500 企业Logo地址
+EntType String 10 企业性质（0-大陆企业，1-社会组织，4-事业单位，7-医院，9-律师事务所，10-学校，11-机关单位，-1-其他）
+RecCap String 50 实缴资本
+PaidUpCapital String 50 实缴出资额数额
+PaidUpCapitalUnit
+String 50 实缴出资额单位
+PaidUpCapitalCCY
+String 50 实缴出资额币种
+AreaCode String 20 行政区划代码
+PermissionInfo：行政许可【其他】 （保留字段）
+字段名称 类型 长度 说明
+Name String 1000 项目名称
+Province String 32 地域
+Liandate String 50 决定日期
+CaseNo String 1000 决定文书号
+Penalty：行政处罚（返回前 100条）
+字段名称 类型 长度 说明
+DocNo String 1000 决定文书号
+PenaltyType String longtext
+处罚事由/违法行为类型
+OfficeName String 1000 处罚单位
+Content String longtext
+处罚结果
+PenaltyDate String 50 处罚日期（如“2022-01-01”）
+企业风险扫描
+ 11 / 31
+企查查开放平台用户参考PublicDate String 50 发布日期（保留字段）
+Remark String 2000 备注（保留字段）
+Exceptions：经营异常（返回前 100条）
+字段名称 类型 长度 说明
+AddReason String 2000 列入经营异常名录原因
+AddDate String 50 列入日期
+RomoveReason String 2000 移出经营异常名录原因（保留字段）
+RemoveDate String 50 移出日期（保留字段）
+DecisionOffice String 500 作出决定机关
+RemoveDecisionOffice
+String 500 移除决定机关（保留字段）
+ShiXinItems：失信（返回前 100条）
+字段名称 类型 长度 说明
+Name String 1000 企业名称
+Liandate String 50 立案日期
+Anno String 1000 立案文书号
+Orgno String 50 组织机构代码
+Executeno String 1000 执行依据文号
+Publicdate String 50 发布时间
+Executestatus String 32 被执行人的履行情况
+Actionremark String 2000 行为备注
+Executegov String 500 执行法院
+ZhiXingItems：执行（返回前 100条）
+字段名称 类型 长度 说明
+Id String 100 Id
+Sourceid String 100 官网系统 ID（保留字段）
+企业风险扫描
+ 12 / 31
+企查查开放平台用户参考Name String 1000 名称
+Liandate String 50 立案时间
+Anno String 1000 立案号
+ExecuteGov String 500 执行法院
+Biaodi String 128 标地
+Status String 100 状态（保留字段）
+PartyCardNum String 50 证件号/组织机构代码
+Updatedate String 50 数据更新时间
+MPledge：动产抵押（返回前 100条）
+字段名称 类型 长度 说明
+RegisterNo String 1000 登记编号
+RegisterDate String 50 登记时间
+PublicDate String 50 公示时间
+RegisterOffice String 500 登记机关
+DebtSecuredAmount
+String 50 被担保债权数额
+Status String 100 状态
+Liquidation：清算
+字段名称 类型 长度 说明
+Leader String 1000 清算组负责人
+Member String 5000 清算组成员
+Pledge：股权出质（返回前 100条）
+字段名称 类型 长度 说明
+CompanyId String 100 企业主键（保留字段）
+RegistNo String 1000 质权登记编号
+Pledgor String 1000 出质人
+企业风险扫描
+ 13 / 31
+企查查开放平台用户参考PledgorNo String 1000 出质人证照编号（保留字段）
+Pledgee String 1000 质权人
+PledgeeNo String 1000 质权人证照编号（保留字段）
+PledgedAmount String 50 出质股权数额
+RegDate String 50 股权出质设立登记日期
+PublicDate String 50 公示时间（保留字段）
+Status String 100 出质状态
+SpotCheck：抽查检查（返回前 100条）
+字段名称 类型 长度 说明
+No String 1000 登记编号（保留字段）
+ExecutiveOrg String 500 检查实施机关
+Type String 10 类型
+Date String 50 日期
+Consequence String 2000 结果
+Remark String 2000 备注（保留字段）
+CompanyTaxCreditItems：纳税信用等级
+字段名称 类型 长度 说明
+No String 50 纳税人识别号
+Name String 1000 纳税人名称
+Year String 50 评价年度
+Level String 10 信用等级
+CompanyProducts：公司产品（返回前 10条）
+字段名称 类型 长度 说明
+CompanyName String 1000 企业名称
+Link String 5000 企业的关联链接
+ImageUrl String 5000 产品的图片
+企业风险扫描
+ 14 / 31
+企查查开放平台用户参考Name String 1000 产品名称
+Domain String 5000 产品领域
+Tags String longtext
+产品标签
+Description String longtext
+产品描述
+Category String 32 产品类型
+PermissionEciInfo：行政许可（返回前 100条）
+字段名称 类型 长度 说明
+LicensDocNo String 1000 决定文书/许可编号
+LicensDocName String 1000 决定文书/许可证名称
+ValidityFrom String 50 有效期自
+ValidityTo String 50 有效期至
+LicensOffice String 500 许可机关
+LicensContent String longtext
+许可内容
+PenaltyCreditChina：行政处罚【工商局 2】（保留字段）
+字段名称 类型 长度 说明
+CaseNo String 1000 决定文书号
+Name String 1000 处罚名称
+Liandate String 50 决定日期
+Province String 32 地域
+OwnerName String 1000 所属人
+CaseReason String longtext
+处罚事由
+Partners：工商登记股东信息（返回前 100条）
+字段名称 类型 长度 说明
+企业风险扫描
+ 15 / 31
+企查查开放平台用户参考KeyNo String 100 主键
+StockName String 1000 投资人
+StockType String 10 投资人类型
+StockPercent String 20 持股比例
+ShouldCapi String 50 认缴出资额/持股数
+SubscribedCapital
+String 51 认缴出资额数额
+SubscribedCapitalUnit
+String 52 认缴出资额单位
+SubscribedCapitalCCY
+String 53 认缴出资额币种
+ShoudDate String 50 认缴出资时间
+InvestType String 10 认出资方式（保留字段）
+InvestName String 50 实出资方式（保留字段）
+RealCapi String 50 实缴出资额
+PaidUpCapital String 50 实缴出资额数额
+PaidUpCapitalUnit
+String 50 实缴出资额单位
+PaidUpCapitalCCY
+String 50 实缴出资额币种
+CapiDate String 50 实缴时间
+TagsList List<String> - 股东标签数组
+FinalBenefitPercent
+String 10 最终受益股份
+RelatedProduct Object - 关联产品
+RelatedOrg Object - 关联机构
+Area String 1000 国籍（或地区）/注册地
+RelatedProduct：关联产品
+字段名称 类型 长度 说明
+企业风险扫描
+ 16 / 31
+企查查开放平台用户参考Id String 100 Id
+Name String 1000 产品名称
+Round String 50 融资轮次
+FinancingCount String 32 融资次数
+RelatedOrg：关联机构
+字段名称 类型 长度 说明
+Id String 100 Id
+Name String 1000 机构名称
+Employees：主要人员（返回前 100条）
+字段名称 类型 长度 说明
+KeyNo String 100 主键
+Name String 1000 名称
+Job String 200 职位
+Branches：分支机构（返回前 100条）
+字段名称 类型 长度 说明
+CompanyId String 100 公司主键
+RegNo String 200 注册号
+Name String 1000 名称
+BelongOrg String 500 登记机关
+CreditCode String 50 统一社会信用代码
+OperName String 1000 法定代表人姓名（保留字段）
+ChangeRecords：变更信息（返回前 100条）
+字段名称 类型 长度 说明
+ProjectName String 1000 变更事项
+BeforeContent String longtext
+变更前内容
+企业风险扫描
+ 17 / 31
+企查查开放平台用户参考AfterContent String longtext
+变更后内容
+ChangeDate String 50 变更日期
+ContactInfo：联系信息
+字段名称 类型 长度 说明
+WebSite List<Object> - 网址
+PhoneNumber String 100 联系电话
+Email String 200 邮箱
+WebSite：网址
+字段名称 类型 长度 说明
+Name String 5000 网址名称
+Url String 1000 网址地址
+Industry：国民行业分类
+字段名称 类型 长度 说明
+IndustryCode String 32 行业门类 code
+Industry String 200 行业门类描述
+SubIndustryCode String 32 行业大类 code
+SubIndustry String 200 行业大类描述
+MiddleCategoryCode
+String 32 行业中类 code
+MiddleCategory String 200 行业中类描述
+SmallCategoryCode
+String 32 行业小类 code
+SmallCategory String 200 行业小类描述
+Area：行政区域
+字段名称 类型 长度 说明
+Province String 32 省份
+企业风险扫描
+ 18 / 31
+企查查开放平台用户参考City String 32 城市
+County String 32 区域
+RevokeInfo：注销吊销信息
+字段名称 类型 长度 说明
+CancelDate String 50 注销日期（如“2022-01-01”）
+CancelReason String 2000 注销原因
+RevokeDate String 50 吊销日期
+RevokeReason String 2000 吊销原因
+EmergingIndustyList：新兴行业分类（保留字段）
+字段名称 类型 长度 说明
+PrimaryCode String 32 一级分类 Code
+PrimaryDes String 200 一级分类描述
+SecondaryList List<Object> - 二级分类
+SecondaryList：二级分类
+字段名称 类型 长度 说明
+SecondaryCode String 32 二级分类 Code
+SecondaryDes String 200 二级分类描述
+TertiaryList List<Object> - 三级分类
+TertiaryList：三级分类
+字段名称 类型 长度 说明
+TertiaryCode String 32 三级分类 Code
+TertiaryDes String 200 三级分类描述
+TagList：企业标签/企业画像
+字段名称 类型 长度 说明
+Type String 10 类型
+企业风险扫描
+ 19 / 31
+企查查开放平台用户参考Name String 1000 类型说明
+ARContactList：最新企业年报中的联系方式
+字段名称 类型 长度 说明
+ContactNo String 100 企业联系电话
+EmailAddress String 200 电子邮箱
+Address String 1000 企业通讯地址
+DesignatedRepresentativeList：委派代表
+字段名称 类型 长度 说明
+PartnerName String 1000 合伙人名称
+DelegatedName String 1000 委派代表名称
+OriginalName：曾用名
+字段名称 类型 长度 说明
+Name String 1000 曾用名
+ChangeDate String 50 变更日期
+Json返回示例：
+{
+    "Status": "200",
+    "Message": "【有效请求】查询成功",
+    "OrderNumber": "ECIINFOOVERVIEW2024112711271058581571",
+    "Result": {
+        "PermissionInfo": [
+            {
+                "Name": "",
+                "Province": "总局",
+                "Liandate": "2021-03-23",
+                "CaseNo": "﹝苏园税一﹞许变准字﹝2021﹞第﹝1378﹞号"
+            },
+企业风险扫描
+ 20 / 31
+企查查开放平台用户参考            {
+                "Name": "",
+                "Province": "总局",
+                "Liandate": "2021-01-28",
+                "CaseNo": "建设工程施工许可证"
+            }
+        ],
+        "Penalty": [
+            {
+                "DocNo": "苏园市监案〔2018〕01524 号",
+                "PenaltyType": "广告内容管理",
+                "OfficeName": "苏州工业园区市场监督管理局",
+                "Content": "罚款8万元,法律、法规规定的其他行政处罚方
+式",
+                "PenaltyDate": "2018-11-20",
+                "PublicDate": "2018-11-20",
+                "Remark": null
+            }
+        ],
+        "Exceptions": [],
+        "ShiXinItems": [],
+        "ZhiXingItems": [],
+        "MPledge": [],
+        "Liquidation": null,
+        "Pledge": [
+            {
+                "CompanyId": "",
+                "RegistNo": "xxxxxxxxxxxxx",
+                "Pledgor": "xxx",
+                "PledgorNo": "",
+企业风险扫描
+ 21 / 31
+企查查开放平台用户参考                "Pledgee": "xxxxxxxxx 有限公司",
+                "PledgeeNo": "",
+                "PledgedAmount": "13500 万股",
+                "RegDate": "2019-06-26",
+                "PublicDate": "",
+                "Status": "有效"
+            }
+        ],
+        "SpotCheck": [
+            {
+                "No": null,
+                "ExecutiveOrg": "苏州工业园区市场监督管理局娄葑分局",
+                "Type": "抽查",
+                "Date": "2015-06-24",
+                "Consequence": "正常",
+                "Remark": null
+            }
+        ],
+        "CompanyTaxCreditItems": [
+            {
+                "No": "xxxxxxxxxx",
+                "Name": "xxxxxxxxx",
+                "Year": "2020",
+                "Level": "A"
+            }
+        ],
+        "CompanyProducts": [
+            {
+                "CompanyName": "xxxxxxxxxxxxxxx",
+                "Link": "http://www.qcc.com",
+企业风险扫描
+ 22 / 31
+企查查开放平台用户参考                "ImageUrl": "https://image.qcc.com/product/19c2ee99-
+0fc9-4d1f-b374-c6cdb6841c3e.jpg",
+                "Name": "企查查",
+                "Domain": "企业服务",
+                "Tags": "企业服务,工具类,工商服务,企业征信,垂直搜索,
+金融机构,数据分析,移动互联网,信息平台,搜索引擎",
+                "Description": "企查查是一个一站式企业信息查询平台，
+通过查询企业信息，查看评价，帮助查询人获取相关信息，用户可以在该平台商查询企业的工商信息、股东法人信息、诉讼失信等信息，产品有 APP、网页、
+微信三种形态。",
+                "Category": ""
+            }
+        ],
+        "PermissionEciInfo": [
+            {
+                "LicensDocNo": "苏园规建消审字【2021】第 0074号",
+                "LicensDocName": "县以上主管部门批文",
+                "ValidityFrom": "2021-04-30",
+                "ValidityTo": "2099-12-31",
+                "LicensOffice": "苏州工业园区规建委",
+                "LicensContent": "同意 DK20190082 地块1#研发总部大楼
+（复审）"
+            }
+        ],
+        "PenaltyCreditChina": [],
+        "Partners": [
+            {
+                "KeyNo": "xxxxxxxxxxxxxxxxxxxxxx",
+                "StockName": "xxx",
+                "StockType": "自然人股东",
+                "StockPercent": "28.8334%",
+                "ShouldCapi": "1441.67",
+企业风险扫描
+ 23 / 31
+企查查开放平台用户参考                "SubscribedCapital": "1441.67",
+                "SubscribedCapitalUnit": "万",
+                "SubscribedCapitalCCY": "CNY",
+                "ShoudDate": "",
+                "InvestType": "",
+                "InvestName": null,
+                "RealCapi": "1441.67",
+                "PaidUpCapital": "1441.67",
+                "PaidUpCapitalUnit": "万",
+                "PaidUpCapitalCCY": "CNY",
+                "CapiDate": null,
+                "TagsList": [
+                    "大股东",
+                    "实际控制人",
+                    "最终受益人"
+                ],
+                "FinalBenefitPercent": "39.9559%",
+                "RelatedProduct": null,
+                "RelatedOrg": null,
+                "Area": ""
+            },
+            {
+                "KeyNo": "xxxxxxxxxxxxxxxxxxxxxxx",
+                "StockName": "xxxxxxxxxxxxxxxxxx",
+                "StockType": "企业法人",
+                "StockPercent": "18.0000%",
+                "ShouldCapi": "900",
+                "ShoudDate": "2020-06-30",
+                "InvestType": "",
+                "InvestName": null,
+企业风险扫描
+ 24 / 31
+企查查开放平台用户参考                "RealCapi": null,
+                "CapiDate": null,
+                "TagsList": [],
+                "FinalBenefitPercent": "18.0989%",
+                "RelatedProduct": {
+                    "Id": "xxxxxxxxxxxxxxxxxxxxxxx",
+                    "Name": "Wind 资讯",
+                    "Round": "战略投资",
+                    "FinancingCount": "4"
+                },
+                "RelatedOrg": {
+                    "Id": "xxxxxxxxxxxxxxxxxxxxx",
+                    "Name": "万得投资"
+                },
+                "Area": "法国"
+            }
+        ],
+        "Employees": [
+            {
+                "KeyNo": "xxxxxxxxxxxxxxxxxxxxxxx",
+                "Name": "xxx",
+                "Job": "董事长"
+            },
+            {
+                "KeyNo": "xxxxxxxxxxxxxxxxxxxx",
+                "Name": "xx",
+                "Job": "董事"
+            }
+        ],
+        "Branches": [
+企业风险扫描
+ 25 / 31
+企查查开放平台用户参考            {
+                "CompanyId": "e6445fxxxxxe501e23",
+                "RegNo": "MAExxxFW-7",
+                "Name": "xxxxxxxxxxxx",
+                "BelongOrg": "乌鲁木齐市经济技术开发区（头屯河区）市
+场监督管理局",
+                "CreditCode": "916501xxxxWYNFW7D",
+                "OperName": ""
+            }
+        ],
+        "ChangeRecords": [
+            {
+                "ProjectName": "注册资本变更（注册资金、资金数额等变
+更）",
+                "BeforeContent": "36000.000000 万元",
+                "AfterContent": "36225.000000 万元（+225 万元）",
+                "ChangeDate": "2023-10-30"
+            },
+            {
+                "ProjectName": "名称变更（字号名称、集团名称等）",
+                "BeforeContent": "xxxxxxxxxxxxxxxxxxx",
+                "AfterContent": "xxxxxxxxx",
+                "ChangeDate": "2020-08-25"
+            }
+        ],
+        "ContactInfo": {
+            "WebSite": [
+                {
+                    "Name": null,
+                    "Url": "www.qcc.com"
+企业风险扫描
+ 26 / 31
+企查查开放平台用户参考                }
+            ],
+            "PhoneNumber": "0512-62519280",
+            "Email": "kefu@qichacha.com"
+        },
+        "Industry": {
+            "IndustryCode": "M",
+            "Industry": "科学研究和技术服务业",
+            "SubIndustryCode": "73",
+            "SubIndustry": "研究和试验发展",
+            "MiddleCategoryCode": null,
+            "MiddleCategory": null,
+            "SmallCategoryCode": null,
+            "SmallCategory": null
+        },
+        "Area": {
+            "Province": "江苏省",
+            "City": "苏州市",
+            "County": "苏州工业园区"
+        },
+        "AreaCode": "320571",
+        "EmergingIndustyList": [],
+        "RevokeInfo": null,
+        "InsuredCount": "331",
+        "EnglishName": "Qichacha Tec Co., Ltd.",
+        "PersonScope": "300-399 人",
+        "IXCode": null,
+        "TagList": [
+            {
+                "Type": "903",
+企业风险扫描
+ 27 / 31
+企查查开放平台用户参考                "Name": "存续"
+            },
+            {
+                "Type": "99",
+                "Name": "曾用名"
+            },
+            {
+                "Type": "3",
+                "Name": "C 轮"
+            },
+            {
+                "Type": "108",
+                "Name": "高新技术企业"
+            },
+            {
+                "Type": "102",
+                "Name": "独角兽企业"
+            },
+            {
+                "Type": "91",
+                "Name": "科技型中小企业"
+            },
+            {
+                "Type": "95",
+                "Name": "江苏省民营科技企业"
+            }
+        ],
+        "ARContactList": [
+            {
+                "ContactNo": "4009282212",
+企业风险扫描
+ 28 / 31
+企查查开放平台用户参考                "EmailAddress": "不公示",
+                "Address": "苏州市工业园区东长路 88号C1幢5层503室"
+            }
+        ],
+        "EconKindCodeList": [
+            "10"
+        ],
+        "KeyNo": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Name": "xxxxxxxxxxxxxx",
+        "No": "xxxxxxxxxxxxxx",
+        "BelongOrg": "苏州工业园区市场监督管理局",
+        "OperId": "xxxxxxxxxxxxx",
+        "OperName": "xxx",
+        "DesignatedRepresentativeList": [
+            {
+                "PartnerName": "xxx 股权投资有限公司",
+                "DelegatedName": "xxx"
+            }
+        ],
+        "StartDate": "2014-03-12 00:00:00",
+        "EndDate": "",
+        "Status": "存续（在营、开业、在册）",
+        "Province": "JS",
+        "UpdatedDate": "2021-07-03 07:40:40",
+        "CreditCode": "xxxxxxxxxxxxxxxxxxx",
+        "RegistCapi": "5000 万元",
+        "RegisteredCapital": "5000",
+        "RegisteredCapitalUnit": "万",
+        "RegisteredCapitalCCY": "CNY",
+        "EconKind": "有限责任公司",
+企业风险扫描
+ 29 / 31
+企查查开放平台用户参考        "Address": "苏州工业园区东长路 88号C1幢5层503室",
+        "Scope": "计算机软件开发、计算机信息技术服务；通信系统自动化
+软硬件的开发，并提供技术咨询、技术服务；计算机软硬件的销售及维护；软件设计及技术转让，并提供相关技术服务；企业管理咨询；市场调查；企业征信业务；企业信用评估；信用管理咨询。 （依法须经批准的项目，经相关部门批
+准后方可开展经营活动）许可项目：第二类增值电信业务；互联网信息服务（依法须经批准的项目，经相关部门批准后方可开展经营活动，具体经营项目以审批结果为准）一般项目：互联网数据服务；大数据服务；人工智能应用软件开发（除依法须经批准的项目外，凭营业执照依法自主开展经营活动）",
+        "TermStart": "2014-03-12 00:00:00",
+        "TermEnd": "2029-06-28 00:00:00",
+        "CheckDate": "2020-08-25 00:00:00",
+        "OrgNo": "08814094-7",
+        "IsOnStock": "0",
+        "StockNumber": null,
+        "StockType": null,
+        "OriginalName": [
+            {
+                "Name": "xxxxxxxxxxxxxxxxxxxxx",
+                "ChangeDate": "2020-08-26"
+            }
+        ],
+        "ImageUrl": "https://image.qcc.com/logo/f625a5xxxx82ca508f99ffe1b.jpg",
+        "EntType": "0",
+        "RecCap": "5000 万元",
+        "PaidUpCapital": "5000",
+        "PaidUpCapitalUnit": "万",
+        "PaidUpCapitalCCY": "CNY"
+    }
+}
+企业风险扫描
+ 30 / 31
+企查查开放平台用户参考8、请求状态码
+8.1有效请求状态码
+状态码 说明
+200 【有效请求】查询成功
+201 【有效请求】查询无结果
+202 【有效请求】查询参数错误，请检查
+205 【有效请求】等待处理中
+207 【有效请求】请求数据的条目数超过上限（5000）
+208 【有效请求】此接口不支持此公司类型查询
+209 【有效请求】企业数量超过上限
+213 【有效请求】参数长度不能小于 2
+215 【有效请求】不支持的查询关键字
+218 【有效请求】该企业暂不支持空壳扫描
+219 【有效请求】该企业暂不支持准入尽调
+105 【有效请求】接口已下线停用
+110 【有效请求】当前相同查询连续出错，请等 2小时后
+重试
+8.2无效请求状态码
+状态码 说明
+101 【无效请求】当前的 KEY无效或者还未生效中
+102 【无效请求】当前 KEY已欠费
+103 【无效请求】当前 KEY被暂停使用
+104 【无效请求】请求 KEY异常，请联系管理员
+106 【无效请求】非法请求过多，请联系管理员
+企业风险扫描
+ 31 / 31
+企查查开放平台用户参考107 【无效请求】被禁止的 IP或者签名错误
+108 【无效请求】异常请求过多，请联系管理员
+109 【无效请求】请求超过每日系统限制
+111 【无效请求】接口权限未开通，请联系管理员
+112 【无效请求】您的账号剩余使用量已不足或已过期
+113 【无效请求】当前接口已被删除，请重新申请
+114 【无效请求】当前接口已被禁用，请联系管理员
+115 【无效请求】身份验证错误或者已过期
+116 【无效请求】请求超过每日（服务期）调用总量限制
+117 【无效请求】当前不支持的请求参数调用量过多
+118 【无效请求】当前接口不支持此方式的调用
+119 【无效请求】您的账号出现异常，请联系管理员
+120 【无效请求】系统流量异常，请稍后再试
+121 【无效请求】数据不能出境
+122 【无效请求】请求超过系统并发限制
+123 【无效请求】您的请求已达未认证权益上限，请及时认证
+124 【无效请求】系统维护中，暂时无法下单
+125 【无效请求】查询参数错误
+126 【无效请求】查询参数类型或结构有误
+199 【无效请求】系统未知错误，请联系技术客服
+203 【无效请求】系统查询有异常，请联系技术人员
+214 【无效请求】您还未购买过该接口，请先购买
+223 【无效请求】查询参数模糊，无法获取结果
+224 【无效请求】查询参数无效

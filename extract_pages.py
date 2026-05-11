@@ -1,0 +1,10 @@
+import PyPDF2
+reader = PyPDF2.PdfReader(r'f:\google agent\参考文件\新版“两制”平台参建单位用户操作手册.pdf')
+print("--- PAGE 57 ---")
+print(reader.pages[57].extract_text())
+print("--- PAGE 58 ---")
+print(reader.pages[58].extract_text())
+print("--- PAGE 60 ---")
+print(reader.pages[60].extract_text())
+print("--- PAGE 62 ---")
+print(reader.pages[62].extract_text())
