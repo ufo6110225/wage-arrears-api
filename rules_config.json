@@ -5,9 +5,10 @@
     "api_title": "宝安区欠薪预警API",
     "debug_mode": true,
     "risk_thresholds": {
-      "red": 55,
-      "orange": 40,
-      "yellow": 25
+      "red": 20,
+      "yellow": 16,
+      "blue": 10,
+      "green": 0
     },
     "auth": {
       "username": "ufo6110225",
@@ -27,7 +28,11 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "five_category": "经营异常",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "in_liquidation",
@@ -39,7 +44,11 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "法院（全国企业破产重整案件信息网‌）"
+        "source": "法院（全国企业破产重整案件信息网‌）",
+        "five_category": "经营异常",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "national_platform_complaints",
@@ -51,10 +60,14 @@
         "threshold": 3,
         "score": 0,
         "is_red_line": true,
-        "source": "区大数据平台"
+        "source": "区大数据平台",
+        "five_category": "公共信用",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "platform_complaints_clues",
+        "key": "platform_complaint_leads",
         "name": "民意速办和欠薪二维码等平台线索",
         "category": "网络舆情与信访类",
         "description": "出现线索并查实。",
@@ -63,10 +76,14 @@
         "threshold": 5,
         "score": 0,
         "is_red_line": true,
-        "source": "区大数据平台"
+        "source": "区大数据平台",
+        "five_category": "公共信用",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "petition_letters_clues",
+        "key": "petition_letter_leads",
         "name": "信访线索",
         "category": "网络舆情与信访类",
         "description": "出现信访线索并查实。",
@@ -75,10 +92,14 @@
         "threshold": 1,
         "score": 0,
         "is_red_line": true,
-        "source": "区大数据平台"
+        "source": "区大数据平台",
+        "five_category": "公共信用",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "dishonest_executor",
+        "key": "dishonest_judgment_debtor",
         "name": "被列为失信被执行人",
         "category": "司法与涉诉类",
         "description": "企业严重失信，丧失融资能力，欠薪风险极高。",
@@ -87,10 +108,14 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "five_category": "司法涉诉",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "sudden_execution_amount",
+        "key": "sudden_enforcement_amount_surge",
         "name": "被执行标的额骤增",
         "category": "司法与涉诉类",
         "description": "突发性巨额债务导致账户可能随时被扣划，极易波及工资资金。",
@@ -99,31 +124,43 @@
         "threshold": 50,
         "score": 0,
         "is_red_line": true,
-        "source": "法院（全国企业破产重整案件信息网‌）"
+        "source": "法院（全国企业破产重整案件信息网‌）",
+        "five_category": "司法涉诉",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "frequent_movable_pledge",
+        "key": "frequent_movable_pledges",
         "name": "高频动产抵押登记",
         "category": "融资与资金链健康度",
         "description": "频繁抵押设备资产套现，暗示现金流面临枯竭。",
-        "field": "frequent_movable_pledges",
+        "field": "has_frequent_movable_pledges",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "人民银行征信中心"
+        "source": "人民银行征信中心",
+        "five_category": "经营异常",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "high_equity_pledge",
         "name": "核心股东大比例股权出质",
         "category": "融资与资金链健康度",
         "description": "实控人或大股东资金链告急，企业失去股东资金兜底保障。",
-        "field": "high_equity_pledge_ratio",
+        "field": "has_high_equity_pledge",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "深圳市政府数据开放平台"
+        "source": "深圳市政府数据开放平台",
+        "five_category": "经营异常",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "social_security_arrears",
@@ -135,19 +172,43 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "five_category": "社保缴纳",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "utility_arrears",
-        "name": "企业拖欠水电燃气费",
+        "key": "water_arrears",
+        "name": "企业拖欠水费",
         "category": "欠薪前置与刚性支出类",
-        "description": "连刚性水电费都无法支付，表明基本运营资金枯竭。",
-        "field": "consecutive_utility_arrears_cycles",
+        "description": "连水费都无法支付，表明基本运营资金枯竭。",
+        "field": "consecutive_water_arrears_cycles",
         "operator": ">=",
         "threshold": 2,
         "score": 4,
         "is_red_line": false,
-        "source": "公共信用信息基础目录（电网或水务集团等）"
+        "source": "公共信用信息基础目录（电网或水务集团等）",
+        "score_t2": 6,
+        "threshold_t2": 4,
+        "five_category": "经营异常",
+        "scoring_rule": "[欠费2-3个周期]扣4分; [欠费>=4个周期]扣6分"
+      },
+      {
+        "key": "electricity_arrears",
+        "name": "企业欠缴电费",
+        "category": "欠薪前置与刚性支出类",
+        "description": "连电费都无法支付，生产经营面临中断。",
+        "field": "consecutive_electricity_arrears_cycles",
+        "operator": ">=",
+        "threshold": 2,
+        "score": 4,
+        "is_red_line": false,
+        "source": "公共信用信息基础目录（电网或水务集团等）",
+        "score_t2": 6,
+        "threshold_t2": 4,
+        "five_category": "经营异常",
+        "scoring_rule": "[欠费2-3个周期]扣4分; [欠费>=4个周期]扣6分"
       },
       {
         "key": "asset_frozen",
@@ -159,19 +220,27 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "法院（全国企业破产重整案件信息网‌）"
+        "source": "法院（全国企业破产重整案件信息网‌）",
+        "five_category": "司法涉诉",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "abnormal_operation",
+        "key": "abnormal_operation_listing",
         "name": "列入经营异常名录",
         "category": "工商与经营状态类",
         "description": "长期待在异常名录表明合规运营体系瘫痪。",
         "field": "days_in_abnormal_operation",
         "operator": ">=",
         "threshold": 30,
-        "score": 3,
+        "score": 4,
         "is_red_line": false,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "score_t2": 7,
+        "threshold_t2": 90,
+        "five_category": "经营异常",
+        "scoring_rule": "[列入异常30-90天]扣4分; [列入异常>90天]扣7分"
       },
       {
         "key": "spot_check_failed",
@@ -181,9 +250,13 @@
         "field": "has_spot_check_failed",
         "operator": "==",
         "threshold": true,
-        "score": 2,
+        "score": 3,
         "is_red_line": false,
-        "source": "双随机一公开平台"
+        "source": "双随机一公开平台",
+        "five_category": "公共信用",
+        "scoring_rule": "[触发即扣分]扣3分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "major_administrative_penalty",
@@ -193,9 +266,13 @@
         "field": "has_major_administrative_penalty",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "five_category": "公共信用",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "tax_credit_downgrade",
@@ -205,9 +282,13 @@
         "field": "has_tax_credit_downgrade",
         "operator": "==",
         "threshold": true,
-        "score": 4,
+        "score": 7,
         "is_red_line": false,
-        "source": "税务局"
+        "source": "税务局",
+        "five_category": "公共信用",
+        "scoring_rule": "[触发即扣分]扣7分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "repeated_complaints",
@@ -217,33 +298,45 @@
         "field": "max_repeated_complaints_by_one_person",
         "operator": ">=",
         "threshold": 5,
-        "score": 2,
+        "score": 4,
         "is_red_line": false,
-        "source": "区大数据平台"
+        "source": "区大数据平台",
+        "score_t2": 6,
+        "threshold_t2": 10,
+        "five_category": "司法涉诉",
+        "scoring_rule": "[同一人投诉5-9次]扣4分; [同一人投诉>=10次]扣6分"
       },
       {
-        "key": "public_sentiment",
+        "key": "high_risk_public_sentiment",
         "name": "网络高危敏感舆情爆发",
         "category": "网络舆情与信访类",
         "description": "舆情发酵，影响企业声誉或引发挤兑风险。",
         "field": "has_high_risk_public_sentiment",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 6,
         "is_red_line": false,
-        "source": ""
+        "source": "人工",
+        "five_category": "公共信用",
+        "scoring_rule": "[触发即扣分]扣6分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "frequent_changes",
         "name": "频繁变更法人及注册地址",
         "category": "工商与经营状态类",
         "description": "可能是逃避债务、转移资产的前期操作。",
-        "field": "frequent_legal_rep_or_address_changes",
+        "field": "has_frequent_legal_rep_or_address_changes",
         "operator": "==",
         "threshold": true,
-        "score": 4,
+        "score": 5,
         "is_red_line": false,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "five_category": "经营异常",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "abnormal_business_status",
@@ -255,7 +348,11 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "five_category": "经营异常",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "cancellation_or_revocation",
@@ -267,19 +364,27 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "five_category": "经营异常",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "excessive_execution_cases",
+        "key": "excessive_enforcement_cases",
         "name": "被执行人案件数量过多",
         "category": "司法与涉诉类",
         "description": "被执行案件数量≥3件，企业经营已深陷债务纠纷泥潭。",
         "field": "execution_case_count",
         "operator": ">=",
         "threshold": 3,
-        "score": 4,
+        "score": 5,
         "is_red_line": false,
-        "source": "法院（执行信息公开网）"
+        "source": "法院（执行信息公开网）",
+        "score_t2": 8,
+        "threshold_t2": 5,
+        "five_category": "司法涉诉",
+        "scoring_rule": "[被执行3-4件]扣5分; [被执行>=5件]扣8分"
       },
       {
         "key": "excessive_admin_penalties",
@@ -289,21 +394,29 @@
         "field": "penalty_count_1year",
         "operator": ">=",
         "threshold": 5,
-        "score": 3,
+        "score": 4,
         "is_red_line": false,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "score_t2": 7,
+        "threshold_t2": 10,
+        "five_category": "公共信用",
+        "scoring_rule": "[年处罚5-9次]扣4分; [年处罚>=10次]扣7分"
       },
       {
-        "key": "repeated_business_exceptions",
+        "key": "repeated_abnormal_listing",
         "name": "多次被列入经营异常名录",
         "category": "工商与经营状态类",
         "description": "累计3次以上被列入经营异常名录，企业经营持续性存在重大疑问。",
         "field": "exception_count",
         "operator": ">=",
         "threshold": 3,
-        "score": 4,
+        "score": 5,
         "is_red_line": false,
-        "source": "公共信用信息基础目录（自有）"
+        "source": "公共信用信息基础目录（自有）",
+        "score_t2": 8,
+        "threshold_t2": 5,
+        "five_category": "经营异常",
+        "scoring_rule": "[累计3-4次列入异常]扣5分; [累计>=5次列入异常]扣8分"
       },
       {
         "key": "excessive_asset_pledge",
@@ -313,9 +426,13 @@
         "field": "asset_pledge_amount_ratio",
         "operator": ">=",
         "threshold": 50,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "人民银行征信中心"
+        "source": "人民银行征信中心",
+        "score_t2": 7,
+        "threshold_t2": 80,
+        "five_category": "经营异常",
+        "scoring_rule": "[抵押金额50%-80%注册资本]扣5分; [抵押金额>80%注册资本]扣7分"
       },
       {
         "key": "excessive_equity_pledge",
@@ -325,21 +442,29 @@
         "field": "equity_pledge_ratio",
         "operator": ">=",
         "threshold": 50,
-        "score": 4,
+        "score": 6,
         "is_red_line": false,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "score_t2": 9,
+        "threshold_t2": 80,
+        "five_category": "经营异常",
+        "scoring_rule": "[出质50%-80%注册资本]扣6分; [出质>80%注册资本]扣9分"
       },
       {
-        "key": "excessive_biz_changes",
+        "key": "excessive_business_changes",
         "name": "近一年工商变更过于频繁",
         "category": "工商与经营状态类",
         "description": "近一年工商变更记录≥5次，企业运营极不稳定，存在异常操作。",
         "field": "biz_change_count_1year",
         "operator": ">=",
         "threshold": 5,
-        "score": 4,
+        "score": 5,
         "is_red_line": false,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "score_t2": 8,
+        "threshold_t2": 10,
+        "five_category": "经营异常",
+        "scoring_rule": "[年变更5-9次]扣5分; [年变更>=10次]扣8分"
       },
       {
         "key": "low_paid_up_capital_ratio",
@@ -349,9 +474,13 @@
         "field": "paid_up_capital_ratio",
         "operator": "<",
         "threshold": 10,
-        "score": 2,
+        "score": 3,
         "is_red_line": false,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "score_t2": 5,
+        "threshold_t2": 5,
+        "five_category": "经营异常",
+        "scoring_rule": "[实缴比例5%-10%]扣3分; [实缴比例<5%]扣5分"
       },
       {
         "key": "business_term_expiring",
@@ -361,9 +490,29 @@
         "field": "months_until_term_end",
         "operator": "<=",
         "threshold": 6,
-        "score": 1,
+        "score": 2,
         "is_red_line": false,
-        "source": "市场监管局"
+        "source": "市场监管局",
+        "score_t2": 4,
+        "threshold_t2": 3,
+        "five_category": "经营异常",
+        "scoring_rule": "[距届满3-6个月]扣2分; [距届满<3个月]扣4分"
+      },
+      {
+        "key": "social_security_drop",
+        "name": "社保参保人数单月锐减",
+        "category": "生产经营异动类",
+        "description": "大面积裁员、未续交社保，群体性离职前兆。",
+        "field": "social_security_drop_pct",
+        "operator": ">=",
+        "threshold": 20,
+        "score": 5,
+        "is_red_line": false,
+        "source": "社保分局",
+        "score_t2": 8,
+        "threshold_t2": 50,
+        "five_category": "社保缴纳",
+        "scoring_rule": "[参保人数下降20%-50%]扣5分; [参保人数下降>50%]扣8分"
       }
     ]
   },
@@ -378,21 +527,13 @@
         "field": "industrial_power_drop_pct",
         "operator": ">=",
         "threshold": 50,
-        "score": 4,
+        "score": 6,
         "is_red_line": false,
-        "source": "市场监管局"
-      },
-      {
-        "key": "social_security_drop",
-        "name": "社保参保人数单月锐减",
-        "category": "生产经营异动类",
-        "description": "大面积裁员、未续交社保，群体性离职前兆。",
-        "field": "social_security_drop_pct",
-        "operator": ">=",
-        "threshold": 20,
-        "score": 4,
-        "is_red_line": false,
-        "source": "电网"
+        "source": "电网",
+        "score_t2": 9,
+        "threshold_t2": 80,
+        "five_category": "经营异常",
+        "scoring_rule": "[用电下降50%-80%]扣6分; [用电下降>80%]扣9分"
       },
       {
         "key": "supply_chain_removal",
@@ -402,21 +543,29 @@
         "field": "is_removed_from_supply_chain",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "人工"
+        "source": "人工",
+        "five_category": "经营异常",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "dispatch_worker_dismissal",
         "name": "短期内大量清退劳务派遣工",
         "category": "工商与经营状态类",
         "description": "激进裁撤临时工易引发群体纠纷。",
-        "field": "short_term_dismissed_dispatch_workers",
-        "operator": ">=",
-        "threshold": 50,
-        "score": 3,
+        "field": "has_dispatch_worker_dismissal",
+        "operator": "==",
+        "threshold": true,
+        "score": 5,
         "is_red_line": false,
-        "source": "人工"
+        "source": "人工",
+        "five_category": "经营异常",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       }
     ]
   },
@@ -433,7 +582,11 @@
         "threshold": true,
         "score": 0,
         "is_red_line": true,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "wage_flow_interrupted",
@@ -445,79 +598,107 @@
         "threshold": 2,
         "score": 0,
         "is_red_line": true,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "红线: 一票否决，直接红色预警",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "low_allocation",
+        "key": "insufficient_labor_fund_allocation",
         "name": "人工费未每月足额拨付预付款",
         "category": "分账制资金合规预警",
-        "description": "建设单位未按时足额拨付人工费到专户，源头资金断裂。",
-        "field": "monthly_allocated_labor_funds_adequate",
+        "description": "建设单位未按时足额拨付人工费到专户，源头资金断裂。（字段取反）",
+        "field": "is_labor_fund_insufficient",
         "operator": "==",
-        "threshold": false,
-        "score": 4,
+        "threshold": true,
+        "score": 7,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣7分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "wage_guarantee_deposit_missing",
         "name": "工资保证金上传预警",
         "category": "分账制资金合规预警",
-        "description": "建设单位未按时上传保证金凭证，",
-        "field": "has_wage_guarantee_deposit",
+        "description": "建设单位未按时上传保证金凭证，（字段取反）",
+        "field": "is_wage_deposit_missing",
         "operator": "==",
-        "threshold": false,
-        "score": 2,
+        "threshold": true,
+        "score": 3,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣3分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "insufficient_account_balance",
+        "key": "abnormal_account_flow",
         "name": "专户流入流出异常",
         "category": "分账制资金合规预警",
         "description": "专户流入流出不符合以往情况。",
         "field": "is_insufficient_account_balance",
         "operator": "==",
         "threshold": true,
-        "score": 3,
+        "score": 5,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "attendance_discrepancy",
+        "key": "low_attendance_rate",
         "name": "实名制考勤率预警",
         "category": "实名制与考勤预警",
         "description": "考勤率低于90%。",
         "field": "attendance_discrepancy_pct",
         "operator": "<=",
         "threshold": 90,
-        "score": 2,
+        "score": 3,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "score_t2": 5,
+        "threshold_t2": 70,
+        "five_category": "用工合规",
+        "scoring_rule": "[考勤率70%-90%]扣3分; [考勤率<70%]扣5分"
       },
       {
-        "key": "salary_abnormal",
+        "key": "abnormal_salary_payment",
         "name": "实发工资流水大幅异常",
         "category": "分账制资金合规预警",
         "description": "发薪低于80%。",
         "field": "is_salary_abnormal",
         "operator": "==",
         "threshold": true,
-        "score": 2,
+        "score": 5,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣5分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
-        "key": "no_payment_guarantee",
+        "key": "payment_guarantee_missing",
         "name": "未上传工程款支付担保函",
         "category": "分账制资金合规预警",
         "description": "缺乏支付担保，项目抗风险兜底能力缺失。",
         "field": "has_payment_guarantee",
         "operator": "==",
         "threshold": false,
-        "score": 1,
+        "score": 2,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣2分",
+        "threshold_t2": null,
+        "score_t2": null
       },
       {
         "key": "audit_delayed",
@@ -527,21 +708,29 @@
         "field": "months_delayed_after_completion",
         "operator": ">=",
         "threshold": 6,
-        "score": 1,
+        "score": 2,
         "is_red_line": false,
-        "source": "人工"
+        "source": "人工",
+        "score_t2": 4,
+        "threshold_t2": 12,
+        "five_category": "用工合规",
+        "scoring_rule": "[拖延6-12个月]扣2分; [拖延>12个月]扣4分"
       },
       {
         "key": "payroll_data_sync",
         "name": "发薪数据同步",
         "category": "分账制资金合规预警",
-        "description": "发薪数据未同步两制平台。",
-        "field": "is_payroll_data_synced",
+        "description": "发薪数据未同步两制平台。（字段取反）",
+        "field": "is_payroll_data_unsynced",
         "operator": "==",
-        "threshold": false,
-        "score": 2,
+        "threshold": true,
+        "score": 3,
         "is_red_line": false,
-        "source": "两制平台"
+        "source": "两制平台",
+        "five_category": "用工合规",
+        "scoring_rule": "[触发即扣分]扣3分",
+        "threshold_t2": null,
+        "score_t2": null
       }
     ]
   }

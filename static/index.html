@@ -5,6 +5,8 @@
 <title>宝安区企业欠薪预警监管平台</title>
 <script src="/static/js/vue.global.prod.js"></script>
 <script src="/static/js/echarts.min.js"></script>
+<link rel="stylesheet" href="/static/css/amap.css">
+<script src="https://webapi.amap.com/maps?v=1.4.15&key=e5d99e866f9023a44404bf8901b03e88&plugin=AMap.ToolBar,AMap.Scale,AMap.MarkerClusterer"></script>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -13,29 +15,31 @@
 <!-- ===== HEADER ===== -->
 <header>
   <div class="logo">
-    <button class="hamburger" @click="drawerOpen=true">☰</button>
+    <button class="hamburger" @click="drawerOpen=true"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
     <div class="logo-icon">预</div>
     <span class="logo-text">宝安区欠薪预警监管平台</span>
   </div>
   <nav class="main-nav">
-    <a class="nav-link" :class="{active:tab==='dashboard'}" @click="tab='dashboard'">态势总览</a>
-    <a class="nav-link" :class="{active:tab==='indicators'}" @click="tab='indicators';fetchIndicators();fetchIndicatorSummary()">指标总览</a>
-    <a class="nav-link" :class="{active:tab==='enterprises'}" @click="tab='enterprises';fetchEnts()">企业总览</a>
+    <a class="nav-link" :class="{active:isNavActive('dashboard')}" @click="navigateTo('dashboard')">态势总览</a>
+    <a class="nav-link" :class="{active:isNavActive('indicators')}" @click="navigateTo('indicators')">指标总览</a>
+    <a class="nav-link" :class="{active:isNavActive('enterprises')}" @click="navigateTo('enterprises')">企业总览</a>
     <template v-if="loggedIn">
       <span class="nav-divider"></span>
-      <a class="nav-link" :class="{active:tab.startsWith('rule')}" @click="tab='ruleCommon'">规则管理</a>
-      <a class="nav-link" :class="{active:tab==='system'}" @click="tab='system'">系统配置</a>
+      <a class="nav-link" :class="{active:isNavActive('rules')}" @click="navigateTo('ruleCommon')">规则管理</a>
+      <a class="nav-link" :class="{active:isNavActive('system')}" @click="navigateTo('system')">系统配置</a>
     </template>
   </nav>
   <div class="header-actions">
+    <span class="live-monitor">
+      <span class="live-dot"></span>实时监控
+    </span>
+    <a class="nav-link" @click="openBigScreen" style="font-size:.82rem;cursor:pointer">数据大屏</a>
     <button v-if="!loggedIn" class="btn btn-primary" @click="showLogin=true">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       管理员登录
     </button>
     <template v-if="loggedIn">
-      <button class="btn btn-ghost btn-icon" @click="toggleTheme" :title="isDark?'白色模式':'深色模式'">{{isDark?'☀':'🌙'}}</button>
-      <button class="btn btn-ghost" @click="fetchAll">⟳ 刷新</button>
-      <button class="btn btn-ghost" @click="logout">退出管理</button>
+      <button class="btn btn-primary" @click="logout">退出管理</button>
     </template>
   </div>
 </header>
@@ -44,538 +48,564 @@
 <div class="drawer-overlay" :class="{open:drawerOpen}" @click="drawerOpen=false"></div>
 <div class="drawer" :class="{open:drawerOpen}">
   <div class="drawer-header"><div class="logo-icon" style="width:28px;height:28px;font-size:13px">预</div>导航菜单</div>
-  <a class="nav-link" :class="{active:tab==='dashboard'}" @click="tab='dashboard';drawerOpen=false">态势总览</a>
-  <a class="nav-link" :class="{active:tab==='indicators'}" @click="tab='indicators';drawerOpen=false;fetchIndicators();fetchIndicatorSummary()">指标总览</a>
-  <a class="nav-link" :class="{active:tab==='enterprises'}" @click="tab='enterprises';drawerOpen=false;fetchEnts()">企业总览</a>
+  <a class="nav-link" :class="{active:isNavActive('dashboard')}" @click="navigateTo('dashboard');drawerOpen=false">态势总览</a>
+  <a class="nav-link" :class="{active:isNavActive('indicators')}" @click="navigateTo('indicators');drawerOpen=false">指标总览</a>
+  <a class="nav-link" :class="{active:isNavActive('enterprises')}" @click="navigateTo('enterprises');drawerOpen=false">企业总览</a>
+  <a class="nav-link" @click="drawerOpen=false;openBigScreen()">数据大屏</a>
   <template v-if="loggedIn">
-    <a class="nav-link" :class="{active:tab.startsWith('rule')}" @click="tab='ruleCommon';drawerOpen=false">规则管理</a>
-    <a class="nav-link" :class="{active:tab==='system'}" @click="tab='system';drawerOpen=false">系统配置</a>
+    <a class="nav-link" :class="{active:isNavActive('rules')}" @click="navigateTo('ruleCommon');drawerOpen=false">规则管理</a>
+    <a class="nav-link" :class="{active:isNavActive('system')}" @click="navigateTo('system');drawerOpen=false">系统配置</a>
   </template>
 </div>
 
 <!-- ===== MAIN CONTENT ===== -->
 <main>
+<transition :name="pageTransitionName" mode="out-in" @after-enter="handlePageTransitionAfterEnter">
+<section class="page-route-shell" :key="pageTransitionKey">
 
 <!-- ── DASHBOARD ── -->
+<!-- 统一风格 DASHBOARD -->
 <template v-if="tab==='dashboard'">
+  <div class="page-header">
+  </div>
 
-  <!-- Public dashboard -->
-  <template v-if="!loggedIn">
-    <div class="pub-hero">
-      <div class="pub-hero-title">欠薪预警态势感知</div>
-      <div class="pub-hero-desc">宝安区政务数据局 · 穿透式监管<br>实时汇聚多源数据，智能评估企业风险</div>
-      <div class="pub-metrics">
-        <div class="pm-item"><span class="pm-num">{{dash.total}}</span><span class="pm-label">监管企业</span></div>
-        <div class="pm-divider"></div>
-        <div class="pm-item"><span class="pm-num danger">{{dash.red+dash.orange}}</span><span class="pm-label">高危预警</span></div>
-        <div class="pm-divider"></div>
-        <div class="pm-item"><span class="pm-num warn">{{dash.yellow+dash.blue}}</span><span class="pm-label">关注预警</span></div>
-        <div class="pm-divider"></div>
-        <div class="pm-item"><span class="pm-num safe">{{dash.assessed}}</span><span class="pm-label">已评估</span></div>
-        <div class="pm-divider"></div>
-        <div class="pm-item"><span class="pm-num" style="color:var(--muted)">{{dash.unassessed}}</span><span class="pm-label">待评估</span></div>
-      </div>
+  <div class="dashboard-hero-band">
+    <div class="dashboard-hero-glow"></div>
+    <div class="dashboard-hero-content">
+      <div class="dashboard-hero-eyebrow">宝安区信用办 · 穿透式监管</div>
+      <h1 class="dashboard-hero-title">欠薪预警态势感知</h1>
+      <p class="dashboard-hero-desc">企业风险一屏统览，红色预警实时追踪，街道分布与趋势变化一目了然</p>
+      <div class="dashboard-hero-accent"></div>
     </div>
+  </div>
 
-    <div class="pub-grid">
-      <div class="pub-card">
-        <div class="pub-card-icon i-accent">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="pub-card-value">{{dash.total}}</div>
-        <div class="pub-card-label">监管企业总数</div>
-        <div class="pub-card-tag">{{dash.assessed}} 已评估</div>
+  <div class="dashboard-command-grid">
+    <div class="dashboard-map-panel">
+      <div class="panel-header">
+        <h3>红色预警分布地图</h3>
       </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-red">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--red)">{{dash.red}}</div>
-        <div class="pub-card-label">红色预警（严重）</div>
-        <div class="pub-card-tag" style="color:var(--red)">{{dash.total ? (dash.red/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-orange">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--orange)">{{dash.orange}}</div>
-        <div class="pub-card-label">橙色预警（高危）</div>
-        <div class="pub-card-tag" style="color:var(--orange)">{{dash.total ? (dash.orange/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-yellow">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:#b48c0a">{{dash.yellow}}</div>
-        <div class="pub-card-label">黄色预警（关注）</div>
-        <div class="pub-card-tag" style="color:#b48c0a">{{dash.total ? (dash.yellow/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-blue">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--blue)">{{dash.blue}}</div>
-        <div class="pub-card-label">蓝色预警（提示）</div>
-        <div class="pub-card-tag" style="color:var(--blue)">{{dash.total ? (dash.blue/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-green">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--green)">{{dash.assessed}}</div>
-        <div class="pub-card-label">已完成评估</div>
-        <div class="pub-card-tag" style="color:var(--green)">{{dash.total ? (dash.assessed/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-muted">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--muted)">{{dash.unassessed}}</div>
-        <div class="pub-card-label">待评估</div>
-        <div class="pub-card-tag">{{dash.total ? (dash.unassessed/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-red">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--red)">{{dash.red_line_count}}</div>
-        <div class="pub-card-label">触发一票否决</div>
-        <div class="pub-card-tag" style="color:var(--red)">{{dash.total ? (dash.red_line_count/dash.total*100).toFixed(1) : 0}}%</div>
-      </div>
+      <div id="dashboardMap" class="dashboard-map-box"></div>
     </div>
 
-    <div class="pub-board">
-      <div class="pub-board-hd">
-        <h3>高风险企业排名</h3>
-        <span v-if="dash.top_risk && dash.top_risk.length">TOP {{Math.min(10, dash.top_risk.length)}}</span>
+    <div class="dashboard-side-panel">
+      <div class="dashboard-mini-grid">
+        <div class="stat-card stat-total compact"><div class="stat-num">{{dash.total}}</div><div class="stat-label">企业总数</div></div>
+        <div class="stat-card stat-red compact"><div class="stat-num">{{dash.red}}</div><div class="stat-label">红色预警</div></div>
+        <div class="stat-card stat-yellow compact"><div class="stat-num">{{dash.yellow}}</div><div class="stat-label">黄色预警</div></div>
+        <div class="stat-card stat-blue compact"><div class="stat-num">{{dash.blue}}</div><div class="stat-label">蓝色预警</div></div>
+        <div class="stat-card stat-green compact"><div class="stat-num">{{dash.green}}</div><div class="stat-label">绿色预警</div></div>
+        <div class="stat-card compact dash-metric-success"><div class="stat-num" style="color:var(--success)">{{dash.assessed}}</div><div class="stat-label">已评估</div></div>
+        <div class="stat-card compact dash-metric-muted"><div class="stat-num" style="color:var(--muted)">{{dash.unassessed}}</div><div class="stat-label">待评估</div></div>
+        <div class="stat-card stat-red compact"><div class="stat-num">{{dash.red_line_count}}</div><div class="stat-label">触发红线</div></div>
       </div>
-      <template v-if="dash.top_risk && dash.top_risk.length">
-        <div class="pub-board-item" v-for="(e,i) in dash.top_risk" :key="e.id">
-          <div class="pb-rank" :class="'pb-r'+(i+1)">{{i+1}}</div>
-          <div class="pb-name">{{e.name}}</div>
-          <div class="pb-type" :class="e.enterprise_type==='factory'?'pb-type-factory':'pb-type-construction'">{{e.enterprise_type==='factory'?'制造业':'工程'}}</div>
-          <div class="pb-badge"><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span></div>
-          <div class="pb-score" :style="{color:e.risk_level==='红色预警'?'var(--red)':e.risk_level==='橙色预警'?'var(--orange)':'var(--yellow)'}">{{e.risk_score}}</div>
-          <div class="pb-bar"><div class="risk-bar-bg"><div class="risk-bar-fill" :style="{width: Math.min(100, e.risk_score)+'%', background: e.risk_level==='红色预警'?'var(--red)':e.risk_level==='橙色预警'?'var(--orange)':'var(--yellow)'}"></div></div></div>
+
+      <div class="card dashboard-donut-card">
+        <div class="page-section-header"><h3>风险等级分布</h3></div>
+        <div id="riskDonutChart" style="width:100%;height:210px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-analytics-row">
+    <div class="dash-chart-card">
+      <h4>街道风险分布</h4>
+      <div id="dashboardDistrictChart" style="width:100%;height:300px"></div>
+    </div>
+    <div class="dash-chart-card">
+      <h4>风险趋势</h4>
+      <div id="trendLineChart" style="width:100%;height:300px"></div>
+    </div>
+  </div>
+
+  <div class="page-section">
+    <div class="scoring-system">
+      <div class="page-section-header"><h3>指标规则与评分体系</h3></div>
+
+      <div class="scoring-hero">
+        <p class="scoring-hero-text">本系统构建<strong>"红线一票否决 + 五维累计扣分"</strong>双层评估模型，覆盖<strong>44项预警指标</strong>（含13条红线），从社保缴纳、经营异常、司法涉诉、用工合规、公共信用五个维度对企业欠薪风险进行穿透式量化评估。评分越高，欠薪风险越大。</p>
+      </div>
+
+      <div class="scoring-dims">
+        <div class="scoring-dim-card">
+          <div class="scoring-dim-head">
+                        <span class="scoring-dim-name">社保缴纳</span>
+            <span class="scoring-dim-weight">权重 20%</span>
+          </div>
+          <p class="scoring-dim-desc">最直接反映企业用工支付能力。监测社保欠缴月数、缴纳人数与在册员工比、近期参保人数下降比例及断缴次数，捕捉企业资金链紧张的前置信号。</p>
+          <div class="scoring-dim-stat">2 项指标<span class="scoring-dim-divider"></span>含 1 条红线</div>
         </div>
-      </template>
-      <div v-else class="pub-board-empty">暂无企业风险数据，等待首次评估完成</div>
-    </div>
-  </template>
 
-  <!-- Admin dashboard -->
-  <template v-if="loggedIn">
-    <div class="page-header">
-      <h2>预警态势总览</h2>
-      <p>实时展示全区企业风险分布与关键统计指标</p>
-    </div>
+        <div class="scoring-dim-card">
+          <div class="scoring-dim-head">
+                        <span class="scoring-dim-name">经营异常</span>
+            <span class="scoring-dim-weight">权重 25%</span>
+          </div>
+          <p class="scoring-dim-desc">维度最广、指标最多的核心维度。涵盖营业执照状态、经营异常名录、欠税欠费、资产抵押、工商变更频率、实缴资本占比等，综合研判企业经营可持续性。</p>
+          <div class="scoring-dim-stat">19 项指标<span class="scoring-dim-divider"></span>含 4 条红线</div>
+        </div>
 
-    <div class="hero-section">
-      <div class="hero-title">欠薪预警态势感知</div>
-      <div class="hero-desc">宝安区政务数据局 · 穿透式监管 — 实时汇聚多源数据，智能评估企业风险</div>
-      <div class="hero-metrics">
-        <div class="hm-item"><span class="hm-num">{{dash.total}}</span><span class="hm-label">监管企业</span></div>
-        <div class="hm-divider"></div>
-        <div class="hm-item"><span class="hm-num danger">{{dash.red + dash.orange}}</span><span class="hm-label">高危预警</span></div>
-        <div class="hm-divider"></div>
-        <div class="hm-item"><span class="hm-num warn">{{dash.yellow + dash.blue}}</span><span class="hm-label">关注预警</span></div>
-        <div class="hm-divider"></div>
-        <div class="hm-item"><span class="hm-num safe">{{dash.assessed}}</span><span class="hm-label">已评估</span></div>
-      </div>
-    </div>
+        <div class="scoring-dim-card">
+          <div class="scoring-dim-head">
+                        <span class="scoring-dim-name">司法涉诉</span>
+            <span class="scoring-dim-weight">权重 20%</span>
+          </div>
+          <p class="scoring-dim-desc">法律层面风险密度最高的维度。监测失信被执行人、被执行案件数量、执行标的突增、资产冻结、重复劳动投诉等司法信号，红线命中率高达60%。</p>
+          <div class="scoring-dim-stat">5 项指标<span class="scoring-dim-divider"></span>含 3 条红线</div>
+        </div>
 
-    <div class="stats-grid">
-      <div class="stat-card stat-total"><div class="stat-num">{{dash.total}}</div><div class="stat-label">企业总数</div></div>
-      <div class="stat-card stat-red"><div class="stat-num">{{dash.red}}</div><div class="stat-label">红色预警</div></div>
-      <div class="stat-card stat-orange"><div class="stat-num">{{dash.orange}}</div><div class="stat-label">橙色预警</div></div>
-      <div class="stat-card stat-yellow"><div class="stat-num">{{dash.yellow}}</div><div class="stat-label">黄色预警</div></div>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card stat-blue"><div class="stat-num">{{dash.blue}}</div><div class="stat-label">蓝色预警</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">{{dash.assessed}}</div><div class="stat-label">已评估</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--muted)">{{dash.unassessed}}</div><div class="stat-label">待评估</div></div>
-      <div class="stat-card stat-red"><div class="stat-num">{{dash.red_line_count}}</div><div class="stat-label">触发红线</div></div>
-    </div>
+        <div class="scoring-dim-card">
+          <div class="scoring-dim-head">
+                        <span class="scoring-dim-name">用工合规</span>
+            <span class="scoring-dim-weight">权重 20%</span>
+          </div>
+          <p class="scoring-dim-desc">直接关联工资支付的合规性检查。聚焦农民工工资专户开立、专户资金流水、工资保证金、考勤与发薪匹配度、工程款支付担保等，为工程建设领域重点维度。</p>
+          <div class="scoring-dim-stat">10 项指标<span class="scoring-dim-divider"></span>含 2 条红线</div>
+        </div>
 
-    <div class="card card-padded risk-bar-card" v-if="dash.total > 0">
-      <div class="rdb-label">风险比例分布</div>
-      <div class="rdb-track">
-        <div class="rdb-seg rdb-red" :style="{width: (dash.red/dash.total*100)+'%'}" :title="'红色预警 '+dash.red+' 家'"><span v-if="dash.red/dash.total > 0.08">{{dash.red}}</span></div>
-        <div class="rdb-seg rdb-orange" :style="{width: (dash.orange/dash.total*100)+'%'}" :title="'橙色预警 '+dash.orange+' 家'"><span v-if="dash.orange/dash.total > 0.08">{{dash.orange}}</span></div>
-        <div class="rdb-seg rdb-yellow" :style="{width: (dash.yellow/dash.total*100)+'%'}" :title="'黄色预警 '+dash.yellow+' 家'"><span v-if="dash.yellow/dash.total > 0.08">{{dash.yellow}}</span></div>
-        <div class="rdb-seg rdb-blue" :style="{width: (dash.blue/dash.total*100)+'%'}" :title="'蓝色预警 '+dash.blue+' 家'"><span v-if="dash.blue/dash.total > 0.08">{{dash.blue}}</span></div>
-        <div class="rdb-seg rdb-safe" :style="{width: Math.max(2, ((dash.total-dash.red-dash.orange-dash.yellow-dash.blue)/dash.total*100))+'%'}" title="正常/未评估"><span v-if="(dash.total-dash.red-dash.orange-dash.yellow-dash.blue)/dash.total > 0.08">{{dash.total-dash.red-dash.orange-dash.yellow-dash.blue}}</span></div>
+        <div class="scoring-dim-card">
+          <div class="scoring-dim-head">
+                        <span class="scoring-dim-name">公共信用</span>
+            <span class="scoring-dim-weight">权重 15%</span>
+          </div>
+          <p class="scoring-dim-desc">社会信用综合评价维度。整合纳税信用等级、行政处罚频次、抽查检查结果、高危舆情、信访线索等外部评价，权重略低于其他维度，作为辅助判断依据。</p>
+          <div class="scoring-dim-stat">8 项指标<span class="scoring-dim-divider"></span>含 3 条红线</div>
+        </div>
       </div>
-      <div class="rdb-legend">
-        <span class="rdb-litem"><span class="rdb-dot" style="background:var(--red)"></span>红色严重</span>
-        <span class="rdb-litem"><span class="rdb-dot" style="background:var(--orange)"></span>橙色高危</span>
-        <span class="rdb-litem"><span class="rdb-dot" style="background:var(--yellow)"></span>黄色关注</span>
-        <span class="rdb-litem"><span class="rdb-dot" style="background:var(--blue)"></span>蓝色提示</span>
-        <span class="rdb-litem"><span class="rdb-dot" style="background:var(--muted)"></span>正常/待评估</span>
-      </div>
-    </div>
 
-    <div class="page-section">
-      <div class="page-section-header">
-        <h3>高风险企业排名</h3>
-        <span v-if="dash.top_risk && dash.top_risk.length">TOP {{Math.min(10, dash.top_risk.length)}}</span>
+      <div class="scoring-process">
+        <h4 class="scoring-section-title">双层评估流程</h4>
+        <div class="scoring-process-steps">
+          <div class="scoring-step">
+            <div class="scoring-step-num">Step 1</div>
+            <div class="scoring-step-content">
+              <div class="scoring-step-label">红线一票否决</div>
+              <p>系统首先遍历<strong>13条红线指标</strong>：营业执照吊销/注销、进入破产清算、国家欠薪平台实名投诉 ≥3起、地方平台投诉 ≥5起、信访线索、失信被执行人、执行标的突增 ≥50%、社保欠缴、资产/账户被冻结、经营状态异常（吊销/停业/清算/在查）、已进入注销/吊销流程、未开立工资专户（工程建设）、专户连续2个月无流水（工程建设）。<strong>任意一条触发，企业直接判定为红色预警</strong>，不再进入累计评分环节。</p>
+            </div>
+          </div>
+          <div class="scoring-step">
+            <div class="scoring-step-num">Step 2</div>
+            <div class="scoring-step-content">
+              <div class="scoring-step-label">五维累计评分</div>
+              <p>未触发红线的企业进入累计评分环节。系统根据31项非红线指标的<strong>分档触发规则</strong>逐项判定：每个指标按严重程度设 T1 / T2 两档阈值，对应不同扣分值（2-9分不等）。累计得分 = 各维度触发指标得分之和，各维度设有封顶上限（按权重折算），最终得分映射至黄/蓝/绿三级风险等级。</p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card table-card" v-if="dash.top_risk && dash.top_risk.length">
-        <table>
-          <thead><tr><th>#</th><th>企业名称</th><th>统一社会信用代码</th><th>类型</th><th>风险评分</th><th>风险等级</th><th>风险强度</th></tr></thead>
-          <tbody><tr v-for="(e,i) in dash.top_risk" :key="e.id">
-            <td><span class="rank-num" :class="'rank-'+(i+1)">{{i+1}}</span></td>
-            <td style="font-weight:500">{{e.name}}</td>
-            <td style="font-family:monospace;font-size:.8rem">{{e.credit_code}}</td>
-            <td><span class="type-badge" :class="e.enterprise_type==='factory'?'type-factory':'type-construction'">{{e.enterprise_type==='factory'?'制造业/服务业':'工程建设'}}</span></td>
-            <td><span class="score-num" :style="{color: e.risk_level==='红色预警'?'var(--red)':e.risk_level==='橙色预警'?'var(--orange)':'var(--yellow)'}">{{e.risk_score}}</span></td>
-            <td><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span></td>
-            <td><div class="risk-bar-bg"><div class="risk-bar-fill" :style="{width: Math.min(100, e.risk_score)+'%', background: e.risk_level==='红色预警'?'var(--red)':e.risk_level==='橙色预警'?'var(--orange)':'var(--yellow)'}"></div></div></td>
-          </tr></tbody>
-        </table>
+
+      <div class="scoring-levels-section">
+        <h4 class="scoring-section-title">风险等级划分</h4>
+        <div class="scoring-levels">
+          <div class="scoring-level-card sl-red">
+            <div class="sl-badge">红色预警</div>
+            <div class="sl-range">触发红线 或 累计 ≥ 20 分</div>
+            <div class="sl-desc">高风险 — 立即启动应急处置，多部门联合核查，每两周跟踪回访直至风险解除。</div>
+          </div>
+          <div class="scoring-level-card sl-yellow">
+            <div class="sl-badge">黄色预警</div>
+            <div class="sl-range">累计 16–19 分</div>
+            <div class="sl-desc">中高风险 — 纳入重点监控名单，加大日常检查频次，限期30日内复核并反馈整改情况。</div>
+          </div>
+          <div class="scoring-level-card sl-blue">
+            <div class="sl-badge">蓝色预警</div>
+            <div class="sl-range">累计 10–15 分</div>
+            <div class="sl-desc">一般风险 — 纳入常规关注名单，按季度跟踪复查，关注风险指标变化趋势。</div>
+          </div>
+          <div class="scoring-level-card sl-green">
+            <div class="sl-badge">绿色</div>
+            <div class="sl-range">累计 &lt; 10 分</div>
+            <div class="sl-desc">低风险 — 企业整体风险可控，保持周期性巡检即可，无需额外干预措施。</div>
+          </div>
+        </div>
       </div>
-      <div v-else class="empty-state">暂无企业风险数据，等待首次评估完成</div>
+
+      <div class="scoring-notes">
+        <div class="scoring-note-card">
+          <h5>企业分类适配</h5>
+          <p>系统根据企业类型动态组装指标集：<strong>31项通用指标</strong>全行业适用，<strong>3项制造业/服务业专用指标</strong>（工业用电骤降、供应链剔除、派遣工清退），<strong>10项工程建设专用指标</strong>（工资专户、实名制考勤、工程款支付担保等）。评估时仅加载该企业类型对应的指标集合，各维度封顶值按比例折算。</p>
+        </div>
+        <div class="scoring-note-card">
+          <h5>扣分时效与衰减</h5>
+          <p>每项扣分的有效期为<strong>12个月</strong>（自数据采集日期起算）。12–18个月前的扣分<strong>减半计入</strong>，18个月前的记录<strong>自动归零</strong>。此机制确保评分反映企业近期真实状态，避免历史问题永久拖累评估结果。</p>
+        </div>
+        <div class="scoring-note-card">
+          <h5>数据更新周期</h5>
+          <p>不同数据源采用差异化刷新频率：<strong>红线指标实时监控</strong>，投诉/处罚/执行案件<strong>每日更新</strong>，社保/水电/经营异常<strong>每月同步</strong>，纳税信用/工商变更<strong>每季度采集</strong>。缺数字段视为未触发，不作扣分处理，确保评估基于可获取的最新数据。</p>
+        </div>
+      </div>
+
     </div>
-  </template>
+  </div>
+
 </template>
 
-<!-- ── INDICATORS ── -->
+<!-- 统一风格 INDICATORS -->
 <template v-if="tab==='indicators'">
-
-  <!-- Public indicators -->
-  <template v-if="!loggedIn">
-    <div class="pub-hero" style="padding-bottom:20px">
-      <div class="pub-hero-title" style="font-size:2rem">预警指标总览</div>
-      <div class="pub-hero-desc">全局预警指标触发统计与维度分布</div>
+  <div class="page-header surface-header indicators-hero">
+    <div class="indicators-hero-main">
+      <div class="indicators-hero-eyebrow">预警指标体系</div>
+      <h2>指标总览</h2>
+      <p>按领域查看预警指标、触发情况与阈值策略，和规则配置保持同一语言体系。</p>
     </div>
-
-    <div class="pub-grid">
-      <div class="pub-card">
-        <div class="pub-card-icon i-accent">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="pub-card-value">{{indicatorSummary.domain_summary.length}}</div>
-        <div class="pub-card-label">预警维度</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-blue">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--cyan)">{{indicators.length}}</div>
-        <div class="pub-card-label">已配置指标</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-green">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--green)">{{indicators.filter(i=>i.triggered_count>0).length}}</div>
-        <div class="pub-card-label">已触发指标</div>
-      </div>
-      <div class="pub-card">
-        <div class="pub-card-icon i-red">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div class="pub-card-value" style="color:var(--red)">{{indicatorSummary.type_summary.factory?.red_line||0 + indicatorSummary.type_summary.construction?.red_line||0}}</div>
-        <div class="pub-card-label">触发红线</div>
-      </div>
+    <div class="header-chip-group">
     </div>
+  </div>
 
-    <div class="pub-section-title">预警维度汇总</div>
-    <div class="pub-board">
-      <div class="pub-board-item" v-for="d in indicatorSummary.domain_summary" :key="d.domain" style="cursor:default">
-        <div style="flex:1;font-weight:500;font-size:.88rem">{{d.domain_name}}</div>
-        <div style="font-size:.74rem;color:var(--muted)">{{d.domain==='common'?'通用基础':d.domain==='factory'?'制造业/服务业':'工程建设'}}</div>
-        <div style="font-size:.78rem;color:var(--text-secondary)">{{d.total_rules}} 项规则</div>
-        <div style="color:var(--red);font-weight:600">{{d.red_line_count}} 项红线</div>
-        <div style="font-weight:600">{{d.total_score}} 分</div>
+  <div class="stats-grid unified-stats-grid">
+    <div class="stat-card stat-total"><div class="stat-num">{{indicatorSummary.domain_summary.length}}</div><div class="stat-label">领域数量</div></div>
+    <div class="stat-card stat-blue"><div class="stat-num">{{indicatorFiveCategoryNames.length}}</div><div class="stat-label">五维分类</div></div>
+    <div class="stat-card stat-yellow"><div class="stat-num">{{triggeredIndicatorsCount}}</div><div class="stat-label">已触发指标</div></div>
+    <div class="stat-card stat-red"><div class="stat-num">{{totalIndicatorRedLines}}</div><div class="stat-label">红线指标</div></div>
+  </div>
+
+  <div class="two-panel-grid indicator-overview-grid">
+    <div class="card table-card section-panel">
+      <div class="indicator-section-header">
+        <div class="indicator-section-header-left">
+          <h3>领域指标矩阵</h3>
+          <span>通用基础 / 制造业服务业 / 工程建设</span>
+        </div>
       </div>
-      <div v-if="!indicatorSummary.domain_summary||!indicatorSummary.domain_summary.length" class="pub-board-empty">暂无维度数据</div>
-    </div>
-
-    <div class="pub-section-title" style="margin-top:28px">指标触发统计</div>
-    <div class="toolbar" style="margin-bottom:12px">
-      <span style="font-size:.82rem;color:var(--muted)">筛选领域：</span>
-      <select v-model="indDomainFilter">
-        <option value="">全部</option>
-        <option value="common">通用基础</option>
-        <option value="factory">制造业/服务业</option>
-        <option value="construction">工程建设</option>
-      </select>
-      <span style="font-size:.78rem;color:var(--muted);margin-left:auto">共 {{filteredIndicators.length}} 项</span>
-    </div>
-    <div class="card table-card">
-      <table>
-        <thead><tr><th>指标名称</th><th>维度</th><th>领域</th><th>分值</th><th>红线</th><th>触发企业数</th></tr></thead>
-        <tbody v-if="filteredIndicators.length">
-          <tr v-for="ind in filteredIndicators" :key="ind.key">
-            <td style="font-weight:500">{{ind.name}}</td>
-            <td><span style="font-size:.74rem;color:var(--text-secondary)">{{ind.category}}</span></td>
-            <td><span class="type-badge" :class="ind.domain==='common'?'type-factory':'type-construction'">{{ind.domain==='common'?'通用':ind.domain==='factory'?'工厂':'工地'}}</span></td>
-            <td style="font-weight:600" :style="{color:ind.score>=15?'var(--red)':ind.score>=10?'var(--orange)':'var(--green)'}">{{ind.score}}</td>
-            <td>{{ind.is_red_line?'⚠ 是':'否'}}</td>
-            <td style="font-weight:600;color:var(--red)">{{ind.triggered_count}}</td>
+      <div style="min-height:200px;display:flex;align-items:center;justify-content:center" v-if="!indicatorSummary.domain_summary || !indicatorSummary.domain_summary.length">
+        <div class="chart-loading-spinner"></div>
+      </div>
+      <table v-else>
+        <thead><tr><th>领域</th><th>分类</th><th>规则数</th><th>红线数</th><th>总分值</th></tr></thead>
+        <tbody>
+          <tr v-for="d in indicatorSummary.domain_summary" :key="d.domain">
+            <td style="font-weight:500">{{d.domain_name.replace('预警模型','')}}</td>
+            <td>{{d.domain==='common'?'通用基础':d.domain==='factory'?'制造业/服务业':'工程建设'}}</td>
+            <td style="font-weight:600">{{d.total_rules}}</td>
+            <td style="color:var(--error);font-weight:600">{{d.red_line_count}}</td>
+            <td style="font-weight:600">{{d.total_score}}</td>
           </tr>
         </tbody>
-        <tfoot v-else><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">暂无指标触发数据</td></tr></tfoot>
       </table>
     </div>
-  </template>
 
-  <!-- Admin indicators -->
-  <template v-if="loggedIn">
-    <div class="page-header">
-      <h2>预警指标总览</h2>
-      <p>全局预警指标触发统计、维度分布与风险热力视图</p>
-    </div>
-
-    <div class="threshold-panel" v-if="loggedIn">
-      <span class="tp-label">预警等级阈值调整</span>
-      <div class="tp-group"><label style="color:var(--red)">红≥</label><input type="number" min="0" max="100" v-model.number="sysConfig.risk_red_threshold" class="tp-input"></div>
-      <div class="tp-group"><label style="color:var(--orange)">橙≥</label><input type="number" min="0" max="100" v-model.number="sysConfig.risk_orange_threshold" class="tp-input"></div>
-      <div class="tp-group"><label style="color:#d4a017">黄≥</label><input type="number" min="0" max="100" v-model.number="sysConfig.risk_yellow_threshold" class="tp-input"></div>
-      <button class="btn btn-primary btn-sm" @click="saveSys">保存阈值</button>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card stat-total"><div class="stat-num">{{indicatorSummary.domain_summary.length}}</div><div class="stat-label">预警维度</div></div>
-      <div class="stat-card stat-red"><div class="stat-num">{{indicatorSummary.type_summary.factory?.red||0}}</div><div class="stat-label">工厂红色预警</div></div>
-      <div class="stat-card stat-orange"><div class="stat-num">{{indicatorSummary.type_summary.factory?.orange||0}}</div><div class="stat-label">工厂橙色预警</div></div>
-      <div class="stat-card stat-yellow"><div class="stat-num">{{indicatorSummary.type_summary.construction?.yellow||0}}</div><div class="stat-label">工地黄色预警</div></div>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-num" style="color:var(--red)">{{indicatorSummary.type_summary.factory?.red_line||0}}</div><div class="stat-label">工厂触发红线</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--red)">{{indicatorSummary.type_summary.construction?.red_line||0}}</div><div class="stat-label">工地触发红线</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--cyan)">{{indicators.length}}</div><div class="stat-label">已配置指标</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">{{indicators.filter(i=>i.triggered_count>0).length}}</div><div class="stat-label">已触发指标</div></div>
-    </div>
-
-    <div class="page-section">
-      <div class="page-section-header">
-        <h3>预警维度汇总</h3>
-      </div>
-      <div class="card table-card">
-        <table>
-          <thead><tr><th>维度名称</th><th>所属领域</th><th>规则数</th><th>红线指标</th><th>维度总分值</th></tr></thead>
-          <tbody><tr v-for="d in indicatorSummary.domain_summary" :key="d.domain">
-            <td style="font-weight:500">{{d.domain_name}}</td>
-            <td>{{d.domain==='common'?'通用基础':d.domain==='factory'?'制造业/服务业':'工程建设'}}</td>
-            <td>{{d.total_rules}}</td>
-            <td style="color:var(--red)">{{d.red_line_count}}</td>
-            <td>{{d.total_score}}</td>
-          </tr></tbody>
-          <tfoot v-if="!indicatorSummary.domain_summary||!indicatorSummary.domain_summary.length"><tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted)">暂无维度数据</td></tr></tfoot>
-        </table>
-      </div>
-    </div>
-
-    <div class="page-section">
-      <div class="page-section-header">
-        <h3>指标触发统计</h3>
-        <span>共 {{filteredIndicators.length}} 项</span>
-      </div>
-      <div class="toolbar">
-        <span style="font-size:.82rem;color:var(--muted)">筛选领域：</span>
-        <select v-model="indDomainFilter">
-          <option value="">全部</option>
-          <option value="common">通用基础</option>
-          <option value="factory">制造业/服务业</option>
-          <option value="construction">工程建设</option>
-        </select>
-        <button class="btn btn-ghost btn-sm" style="margin-left:auto" @click="exportIndicators">📥 导出指标</button>
-      </div>
-      <div class="card table-card">
-        <table>
-          <thead><tr><th>指标名称</th><th>维度</th><th>领域</th><th>阈值条件</th><th>分值</th><th>红线</th><th>触发企业数</th><th>数据采集来源</th></tr></thead>
-          <tbody v-if="filteredIndicators.length">
-            <tr v-for="ind in filteredIndicators" :key="ind.key" style="cursor:pointer" @click="expandedIndId=expandedIndId===ind.key?null:ind.key">
-              <td style="font-weight:500">{{ind.name}}</td>
-              <td><span style="font-size:.78rem;color:var(--text-secondary)">{{ind.category}}</span></td>
-              <td>{{ind.domain==='common'?'通用':ind.domain==='factory'?'工厂':'工地'}}</td>
-              <td style="font-family:monospace;font-size:.8rem">{{ind.operator}} {{ind.threshold}}</td>
-              <td style="font-weight:700" :style="{color:ind.score>=15?'var(--red)':ind.score>=10?'var(--orange)':'var(--green)'}">{{ind.score}}</td>
-              <td>{{ind.is_red_line?'⚠ 是':'否'}}</td>
-              <td style="font-weight:700;color:var(--red)">{{ind.triggered_count}}</td>
-              <td style="font-size:.75rem;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="ind.source">{{ind.source||'—'}}</td>
-            </tr>
-          </tbody>
-          <tfoot v-else><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">暂无指标触发数据</td></tr></tfoot>
-        </table>
-      </div>
-    </div>
-  </template>
-</template>
-
-<!-- ── ENTERPRISES ── -->
-<template v-if="tab==='enterprises'">
-
-  <!-- Public enterprises -->
-  <template v-if="!loggedIn">
-    <div class="pub-hero" style="padding-bottom:20px">
-      <div class="pub-hero-title" style="font-size:2rem">区内企业总览</div>
-      <div class="pub-hero-desc">辖区内被监管企业风险状态一览</div>
-    </div>
-
-    <div class="level-tabs">
-      <div class="level-tab" :class="{active:levelFilter==='all'}" @click="levelFilter='all'">全部 ({{enterprises.items?enterprises.items.length:0}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='红色预警'}" @click="levelFilter='红色预警'" style="border-color:var(--red);color:var(--red)">🔴 红色 ({{levelCounts.red}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='橙色预警'}" @click="levelFilter='橙色预警'" style="border-color:var(--orange);color:var(--orange)">🟠 橙色 ({{levelCounts.orange}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='黄色预警'}" @click="levelFilter='黄色预警'" style="border-color:var(--yellow);color:#b48c0a">🟡 黄色 ({{levelCounts.yellow}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='蓝色预警'}" @click="levelFilter='蓝色预警'" style="border-color:var(--blue);color:var(--blue)">🔵 蓝色 ({{levelCounts.blue}})</div>
-    </div>
-
-    <div class="toolbar">
-      <input placeholder="搜索企业名称或信用代码..." v-model="entSearch" @input="fetchEnts()" style="flex:1;min-width:200px">
-      <select v-model="entTypeFilter" @change="fetchEnts()">
-        <option value="">全部类型</option>
-        <option value="factory">工厂/服务业</option>
-        <option value="construction">工地/工程</option>
-      </select>
-    </div>
-
-    <div class="pub-ent-grid" v-if="filteredEnts.length">
-      <div class="pub-ent-card" v-for="e in filteredEnts" :key="e.id">
-        <div class="pub-ent-top">
-          <div>
-            <div class="pub-ent-name">{{e.name}}</div>
-            <div class="pub-ent-code">{{e.credit_code}}</div>
-          </div>
-          <span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level||'未评估'}}</span>
-        </div>
-        <div class="pub-ent-meta">
-          <span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-            {{e.enterprise_type==='factory'?'制造业/服务业':'工程建设'}}
-          </span>
-          <span v-if="e.district">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {{e.district}}
-          </span>
-          <span v-if="e.risk_score>=0">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-            风险分 {{e.risk_score}}
-          </span>
-          <span v-if="e.is_red_line" style="color:var(--red)">⚠ 红线</span>
-        </div>
-        <div class="pub-ent-detail" v-if="e.risk_details&&e.risk_details.length">
-          异常项：{{e.risk_details.map(d=>d.item_name).join('、')}}
-        </div>
-        <div style="margin-top:12px;display:flex;justify-content:flex-end">
-          <button class="btn btn-sm" style="background:var(--cyan);border-color:var(--cyan);color:#000" @click.stop="openProfile(e.id)">查看画像</button>
+    <div class="card section-panel indicators-chart-card">
+      <div class="indicator-section-header">
+        <div class="indicator-section-header-left">
+          <h3>高频风险指标</h3>
+          <span>按触发次数从高到低排序</span>
         </div>
       </div>
+      <div class="chart-rounded-wrap" style="min-height:200px;display:flex;align-items:center;justify-content:center">
+        <div id="highRiskChart" style="width:100%;height:400px" v-if="highRiskIndicators.length"></div>
+        <div class="chart-loading-spinner" v-else></div>
+      </div>
     </div>
-    <div v-else class="empty-state" style="margin-top:20px">当前暂无企业数据</div>
-  </template>
+  </div>
 
-  <!-- Admin enterprises -->
-  <template v-if="loggedIn">
-    <div class="page-header">
-      <h2>区内企业总览与分级控制</h2>
-      <p>管理辖区内所有被监管企业，支持多维过滤、分级筛选与风险画像</p>
-    </div>
-
-    <div class="level-tabs">
-      <div class="level-tab" :class="{active:levelFilter==='all'}" @click="levelFilter='all'">全部 ({{enterprises.items?enterprises.items.length:0}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='红色预警'}" @click="levelFilter='红色预警'" style="border-color:var(--red);color:var(--red)">🔴 红色 ({{levelCounts.red}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='橙色预警'}" @click="levelFilter='橙色预警'" style="border-color:var(--orange);color:var(--orange)">🟠 橙色 ({{levelCounts.orange}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='黄色预警'}" @click="levelFilter='黄色预警'" style="border-color:var(--yellow);color:#b48c0a">🟡 黄色 ({{levelCounts.yellow}})</div>
-      <div class="level-tab" :class="{active:levelFilter==='蓝色预警'}" @click="levelFilter='蓝色预警'" style="border-color:var(--blue);color:var(--blue)">🔵 蓝色 ({{levelCounts.blue}})</div>
-    </div>
-
-    <div class="toolbar">
-      <input placeholder="搜索企业名称或信用代码..." v-model="entSearch" @input="fetchEnts()" style="flex:1;min-width:200px">
-      <select v-model="entTypeFilter" @change="fetchEnts()">
-        <option value="">全部类型</option>
-        <option value="factory">工厂/服务业</option>
-        <option value="construction">工地/工程</option>
-      </select>
-      <template v-if="loggedIn">
-        <button class="btn btn-primary btn-sm" @click="showAddEnt=true">＋ 录入企业</button>
-        <button class="btn btn-sm" style="background:var(--orange);border-color:var(--orange);color:#fff" @click="batchAssess">批量评估</button>
-      </template>
-      <button class="btn btn-ghost btn-sm" @click="exportData(levelFilter==='all'?null:levelFilter)">📥 导出</button>
-    </div>
-
-    <div class="card table-card">
+  <div class="page-section">
+    <div class="card table-card indicators-list-card">
+      <div class="indicator-section-header">
+        <div class="indicator-section-header-left">
+          <h3>指标清单</h3>
+          <span class="indicator-section-count">共 {{filteredIndicators.length}} 项</span>
+        </div>
+        <div class="toolbar-group">
+          <span class="indicator-section-filter-label">领域筛选</span>
+          <select v-model="indDomainFilter" class="indicator-section-select">
+            <option value="">全部</option>
+            <option value="common">通用基础</option>
+            <option value="factory">制造业/服务业</option>
+            <option value="construction">工程建设</option>
+          </select>
+          <button v-if="loggedIn" class="btn btn-ghost btn-sm" @click="exportIndicators">导出指标</button>
+        </div>
+      </div>
+      <div class="table-wrap">
       <table>
-        <thead><tr><th>企业名称</th><th>信用代码</th><th>类型</th><th>街道</th><th>风险分</th><th>等级</th><th>红线</th><th>异常项摘要</th><th>评估时间</th><th v-if="loggedIn">操作</th></tr></thead>
-        <tbody>
-          <template v-for="e in filteredEnts" :key="e.id">
-            <tr @click="toggleExpand(e.id)" style="cursor:pointer">
-              <td style="font-weight:500">{{e.name}}</td>
-              <td style="font-family:monospace;font-size:.8rem">{{e.credit_code}}</td>
-              <td>{{e.enterprise_type==='factory'?'工厂':'工地'}}</td>
-              <td>{{e.district}}</td>
-              <td style="font-weight:700" :style="{color:e.risk_level==='红色预警'?'var(--red)':e.risk_level==='橙色预警'?'var(--orange)':e.risk_level==='黄色预警'?'var(--yellow)':'var(--blue)'}">{{e.risk_score>=0?e.risk_score:'—'}}</td>
-              <td><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span></td>
-              <td style="color:var(--red);font-weight:bold">{{e.is_red_line?'⚠ 是':'否'}}</td>
-              <td style="font-size:.8rem">{{e.risk_details&&e.risk_details.length?e.risk_details.map(d=>d.item_name).join('、'):'—'}}</td>
-              <td style="font-size:.78rem;color:var(--muted)">{{e.last_assessed_at||'未评估'}}</td>
-              <td v-if="loggedIn" @click.stop>
-                <button class="btn btn-sm" @click="openAssess(e)">评估</button>
-                <button class="btn btn-sm" style="background:var(--cyan);border-color:var(--cyan);color:#000;margin-left:4px" @click="openProfile(e.id)">画像</button>
-                <button class="btn btn-danger btn-sm" style="margin-left:4px" @click="delEnt(e.id,e.name)">删除</button>
-              </td>
+        <thead><tr><th>指标名称</th><th>维度分类</th><th>五维分类</th><th>领域</th><th>触发条件</th><th>扣分规则</th><th>分值</th><th>红线</th><th>触发次数</th><th>数据来源</th></tr></thead>
+        <tbody v-if="filteredIndicators.length">
+          <template v-for="ind in filteredIndicators" :key="ind.key">
+            <tr class="indicator-row" :class="{expanded: expandedIndId===ind.key}" @click="expandedIndId=expandedIndId===ind.key?null:ind.key">
+              <td style="font-weight:500">{{ind.name}}</td>
+              <td><span class="indicator-category-tag">{{ind.category}}</span></td>
+              <td>{{ind.five_category||'—'}}</td>
+              <td>{{ind.domain==='common'?'通用':ind.domain==='factory'?'制造':'建设'}}</td>
+              <td style="font-family:var(--font-code);font-size:.8rem">{{ind.operator}} {{ind.threshold}}</td>
+              <td style="font-size:.78rem;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="ind.scoring_rule||'-'">{{ind.scoring_rule||'-'}}</td>
+              <td style="font-weight:700" :style="{color:ind.score>=15?'var(--error)':ind.score>=10?'var(--warning)':'var(--success)'}">{{ind.score}}</td>
+              <td><span class="indicator-redline-flag" :class="{active:ind.is_red_line}">{{ind.is_red_line?'是':'否'}}</span></td>
+              <td style="font-weight:600" :style="{color:ind.triggered_count>0?'var(--error)':'var(--muted)'}">{{ind.triggered_count}}</td>
+              <td style="font-size:.75rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="ind.source||ind.data_source">{{ind.source||ind.data_source||'-'}}</td>
             </tr>
-            <tr v-if="expandedId===e.id&&e.risk_details&&e.risk_details.length">
-              <td colspan="11" class="detail-row">
-                <div style="margin-bottom:6px;font-weight:500;font-size:.85rem">扣分明细：</div>
-                <span class="detail-item" v-for="d in e.risk_details" :key="d.item_name">{{d.item_name}} (+{{d.score}}分)</span>
-                <div style="margin-top:8px;font-size:.82rem;color:var(--muted)">建议处置：{{e.recommended_actions}}</div>
+            <tr v-if="expandedIndId===ind.key" class="indicator-detail-row">
+              <td colspan="10">
+                <div class="indicator-inline-detail">
+                  <span><strong>指标编码：</strong>{{ind.key}}</span>
+                  <span><strong>数据字段：</strong>{{ind.field||'—'}}</span>
+                  <span><strong>T1 阈值：</strong>{{ind.operator}} {{ind.threshold}} / {{ind.score}} 分</span>
+                  <span><strong>T2 阈值：</strong>{{ind.threshold_t2||'—'}}<template v-if="ind.threshold_t2"> / {{ind.score_t2}} 分</template></span>
+                  <span><strong>说明：</strong>{{ind.description||ind.name||'—'}}</span>
+                </div>
               </td>
             </tr>
           </template>
         </tbody>
+        <tfoot v-else><tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">暂无可展示指标</td></tr></tfoot>
       </table>
+      </div>
     </div>
-    <div v-if="!filteredEnts||!filteredEnts.length" class="empty-state">当前暂无企业数据</div>
-  </template>
+  </div>
+
+
 </template>
 
-<!-- ── RULES ── -->
-<template v-if="tab.startsWith('rule')">
-  <div class="page-header">
-    <h2>{{domainName}} — 指标规则管理</h2>
-    <p>每个指标拥有独立保存接口，可调整名称、说明、阈值、权重，也可新增或删除。</p>
+<template v-if="tab==='enterprises'">
+  <div class="page-hero-band">
+    <div class="page-hero-content">
+      <div class="page-hero-eyebrow">企业监管名录</div>
+      <h2>{{loggedIn ? '区内企业总览与分级控制' : '区内企业总览与风险画像'}}</h2>
+      <p>{{loggedIn ? '管理辖区内所有被监管企业，支持多维过滤、表卡切换与风险画像联动。' : '公开态与登录态使用同一套浏览结构，按统一口径查看辖区企业风险分布与画像。'}}</p>
+    </div>
+    <div class="header-chip-group">
+      <span class="header-chip header-chip-accent">{{dash.total || enterprises.total || (enterprises.items?enterprises.items.length:0)}} 家企业</span>
+      <span class="header-chip">{{levelCounts.red}} 家红色预警</span>
+      <span class="header-chip">{{dash.red_line_count || 0}} 条红线触发</span>
+    </div>
   </div>
 
   <div class="level-tabs">
-    <div class="level-tab" :class="{active:tab==='ruleCommon'}" @click="tab='ruleCommon'">通用基础</div>
-    <div class="level-tab" :class="{active:tab==='ruleFactory'}" @click="tab='ruleFactory'">制造业/服务业</div>
-    <div class="level-tab" :class="{active:tab==='ruleConstruction'}" @click="tab='ruleConstruction'">工程建设</div>
+    <div class="level-tab" :class="{active:levelFilter==='all'}" @click="changeLevel('all')">全部 ({{dash.total || enterprises.total || (enterprises.items?enterprises.items.length:0)}})</div>
+    <div class="level-tab lt-red" :class="{active:levelFilter==='红色预警'}" @click="changeLevel('红色预警')"> 红色 ({{levelCounts.red}})</div>
+    <div class="level-tab lt-yellow" :class="{active:levelFilter==='黄色预警'}" @click="changeLevel('黄色预警')"> 黄色 ({{levelCounts.yellow}})</div>
+    <div class="level-tab lt-blue" :class="{active:levelFilter==='蓝色预警'}" @click="changeLevel('蓝色预警')"> 蓝色 ({{levelCounts.blue}})</div>
+    <div class="level-tab lt-green" :class="{active:levelFilter==='绿色预警'}" @click="changeLevel('绿色预警')"> 绿色 ({{levelCounts.green}})</div>
   </div>
 
-  <div class="rule-card" v-for="rule in rules" :key="rule.key">
-    <div class="rule-header" @click="rule._expanded = !rule._expanded" style="cursor:pointer">
-      <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-        <div>
-          <div class="rule-name">{{rule.name}} <span v-if="rule.is_red_line" class="redline-badge">一票否决</span></div>
-          <div class="rule-category">所属维度：{{rule.category}} | 标识：{{rule.key}}</div>
-        </div>
-        <div style="font-size:1.2rem;color:var(--muted);transition:transform .2s" :style="{transform:rule._expanded?'rotate(180deg)':'rotate(0deg)'}">▼</div>
-      </div>
+  <div class="toolbar admin-toolbar unified-toolbar">
+    <div class="toolbar-group toolbar-group-grow">
+      <input placeholder="搜索企业名称或信用代码..." v-model="entSearch" @input="fetchEnts()" style="flex:1;min-width:220px">
     </div>
-    <div v-show="rule._expanded">
-      <div class="rule-desc" style="margin-top:10px">{{rule.description}}</div>
-      <div class="rule-fields">
-        <div class="field-group"><div class="field-label">指标名称</div><input class="field-input" v-model="rule.name"></div>
-        <div class="field-group"><div class="field-label">所属维度</div><input class="field-input" v-model="rule.category"></div>
-        <div class="field-group"><div class="field-label">数据字段标识</div><input class="field-input" v-model="rule.field"></div>
-        <div class="field-group"><div class="field-label">判断运算符</div><select class="field-input" v-model="rule.operator"><option value="&gt;=">大于等于(&gt;=)</option><option value="&lt;=">小于等于(&lt;=)</option><option value="&gt;">大于(&gt;)</option><option value="&lt;">小于(&lt;)</option><option value="==">等于(==)</option><option value="!=">不等于(!=)</option></select></div>
-        <div class="field-group"><div class="field-label">触发阈值</div><input class="field-input" v-model="rule.threshold"></div>
-        <div class="field-group"><div class="field-label">风险分值（分）</div><input class="field-input" type="number" v-model.number="rule.score"></div>
+    <div class="toolbar-group">
+      <select v-model="entTypeFilter" @change="fetchEnts()">
+        <option value="">全部类型</option>
+        <option value="factory">工厂/服务业</option>
+        <option value="construction">工地/工程</option>
+      </select>
+      <select v-model="entDistrictFilter" @change="fetchEnts()">
+        <option value="">全部街道</option>
+        <option v-for="d in psDistrictList" :key="'ent-'+d" :value="d">{{d}}</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
+      <template v-if="loggedIn">
+        <button class="btn btn-sm" @click="showAddEnt=true">＋ 录入</button>
+        <button class="btn btn-sm" @click="showUploadIndicators=true">上传</button>
+        <button class="btn btn-sm" @click="batchAssess">批量评估</button>
+      </template>
+      <button class="btn btn-sm" @click="exportData(levelFilter==='all'?null:levelFilter)">导出</button>
+    </div>
+    <div class="toolbar-group view-switch">
+      <button class="view-switch-btn" :class="{active:entViewMode==='card'}" @click="toggleViewMode('card')">卡片</button>
+      <button class="view-switch-btn" :class="{active:entViewMode==='table'}" @click="toggleViewMode('table')">表格</button>
+    </div>
+  </div>
+
+  <div class="pub-ent-grid" v-if="entViewMode==='card'&&filteredEnts.length">
+    <div class="pub-ent-card" :class="riskLevelClass(e.risk_level)" v-for="e in filteredEnts" :key="e.id">
+      <div class="pub-ent-badge-row">
+        <span class="pub-ent-chip">
+          <template v-if="e.enterprise_type==='factory'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M8 21V9l4 3V9l4 3V9l4 3V9l2 1v11"/></svg>
+          </template>
+          <template v-else>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 8v13h20V8L12 3z"/><rect x="8" y="14" width="8" height="7"/></svg>
+          </template>
+          {{enterpriseTypeText(e.enterprise_type)}}
+        </span>
+        <span class="pub-ent-chip" v-if="e.district">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          {{e.district}}
+        </span>
+        <span class="pub-ent-chip pub-ent-chip-danger" v-if="e.is_red_line">⚠ 红线</span>
       </div>
-      <div style="margin-top:12px"><div class="field-group"><div class="field-label">指标说明（调整依据与业务含义）</div><textarea class="field-input" rows="2" style="resize:vertical;font-family:inherit" v-model="rule.description"></textarea></div></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-        <div class="chk-wrap"><input type="checkbox" v-model="rule.is_red_line"><label class="field-label" style="color:var(--red)">标记为一票否决红线指标</label></div>
-        <div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" @click="deleteRule(rule.key,rule.name)">删除</button><button class="btn btn-primary btn-sm" @click="saveRule(rule)">保存</button></div>
+
+      <div class="pub-ent-headline">
+        <div class="pub-ent-header-copy">
+          <div class="pub-ent-name">{{e.name}}</div>
+          <div class="pub-ent-code">统一社会信用代码 · {{e.credit_code || '—'}}</div>
+        </div>
+      </div>
+
+      <div class="pub-ent-meta-grid">
+        <div class="pub-ent-meta-cell">
+          <span class="pub-ent-meta-label">预警等级</span>
+          <span class="pub-ent-meta-value">{{e.risk_level || '未评估'}}</span>
+        </div>
+        <div class="pub-ent-meta-cell">
+          <span class="pub-ent-meta-label">风险分</span>
+          <span class="pub-ent-meta-value score-in-meta" :class="riskLevelClass(e.risk_level)">{{e.risk_score>=0 ? e.risk_score : '—'}}</span>
+        </div>
+        <div class="pub-ent-meta-cell">
+          <span class="pub-ent-meta-label">所属街道</span>
+          <span class="pub-ent-meta-value">{{e.district || '待补充'}}</span>
+        </div>
+        <div class="pub-ent-meta-cell">
+          <span class="pub-ent-meta-label">异常项数量</span>
+          <span class="pub-ent-meta-value">{{e.risk_details && e.risk_details.length ? e.risk_details.length + ' 项' : '0 项'}}</span>
+        </div>
+      </div>
+
+      <div class="pub-ent-actions">
+        <button class="btn btn-profile btn-sm" @click.stop="openProfile(e.id)">画像</button>
+        <button v-if="loggedIn" class="btn btn-danger btn-sm" @click.stop="delEnt(e.id,e.name)">删除</button>
       </div>
     </div>
   </div>
-  <button class="btn btn-primary" @click="showAddRule=true" style="margin-top:12px">＋ 新增预警指标</button>
+
+  <div class="card table-card enterprise-table-card" v-if="entViewMode==='table'">
+    <table>
+      <colgroup>
+        <col style="width:16%">
+        <col style="width:16%">
+        <col style="width:10%">
+        <col style="width:12%">
+        <col style="width:9%">
+        <col style="width:11%">
+        <col style="width:11%">
+        <col style="width:15%">
+      </colgroup>
+      <thead><tr><th>企业名称</th><th>信用代码</th><th>类型</th><th>街道</th><th>风险分</th><th>等级</th><th>红线</th><th>操作</th></tr></thead>
+      <tbody>
+        <template v-for="e in filteredEnts" :key="e.id">
+          <tr @click="toggleExpand(e.id)" style="cursor:pointer">
+            <td>
+              <div class="table-enterprise-name">{{e.name}}</div>
+            </td>
+            <td style="font-family:monospace;font-size:.8rem">{{e.credit_code}}</td>
+            <td><span class="table-summary-chip">{{enterpriseTypeShort(e.enterprise_type)}}</span></td>
+            <td>{{e.district || '—'}}</td>
+            <td><span class="table-score-pill" :class="riskLevelClass(e.risk_level)">{{e.risk_score>=0?e.risk_score:'—'}}</span></td>
+            <td><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level||'未评估'}}</span></td>
+            <td><span class="table-redline-flag" :class="{active:e.is_red_line}">{{e.is_red_line?'已触发':'未触发'}}</span></td>
+            <td @click.stop>
+              <div class="table-actions">
+                <button class="btn btn-profile btn-sm" @click.stop="openProfile(e.id)">画像</button>
+                <button v-if="loggedIn" class="btn btn-danger btn-sm" @click.stop="delEnt(e.id,e.name)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="expandedId===e.id&&e.risk_details&&e.risk_details.length">
+            <td colspan="8" class="detail-row">
+              <div style="margin-bottom:6px;font-weight:500;font-size:.85rem">扣分明细：</div>
+              <span class="detail-item" v-for="d in e.risk_details" :key="d.item_name">{{d.item_name}} (+{{d.score}}分)</span>
+              <div style="margin-top:8px;font-size:.82rem;color:var(--muted)">建议处置：{{e.recommended_actions}}</div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" v-if="enterprises.items && enterprises.items.length">
+    <span class="page-info">共 {{enterprises.total}} 家企业，第 {{entPage}}/{{Math.ceil(enterprises.total/entPageSize)}} 页</span>
+    <div class="page-btns">
+      <button class="page-btn" :disabled="entPage<=1" @click="entPage=Math.max(1,entPage-1);fetchEnts()">< 上一页</button>
+      <button class="page-btn" :class="{active:entPage===p}" v-for="p in pageNumbers" :key="p" @click="entPage=p;fetchEnts()">{{p}}</button>
+      <button class="page-btn" :disabled="entPage>=Math.ceil(enterprises.total/entPageSize)" @click="entPage++;fetchEnts()">下一页 ></button>
+    </div>
+    <select class="page-size-select" v-model.number="entPageSize" @change="entPage=1;fetchEnts()">
+      <option :value="20">20条/页</option>
+      <option :value="50">50条/页</option>
+      <option :value="100">100条/页</option>
+    </select>
+  </div>
+
+  <div v-if="entViewMode==='table'&&(!filteredEnts||!filteredEnts.length)" class="empty-state">当前暂无企业数据</div>
+  <div v-if="entViewMode==='card'&&(!filteredEnts||!filteredEnts.length)" class="empty-state">当前暂无企业数据</div>
 </template>
 
-<!-- ── SYSTEM CONFIG ── -->
+<!-- ── RULES ── -->
+<!-- 统一风格 RULES -->
+<template v-if="tab.startsWith('rule')">
+  <div class="page-hero-band">
+    <div class="page-hero-content">
+      <div class="page-hero-eyebrow">预警规则配置</div>
+      <h2>{{domainName}} · 规则管理</h2>
+      <p>统一维护指标定义、阈值、分值与红线策略，确保评估口径前后一致。</p>
+    </div>
+    <div class="header-chip-group">
+      <span class="header-chip header-chip-accent">{{rules.length}} 条规则</span>
+      <span class="header-chip">{{rulesRedLineCount}} 条红线</span>
+      <button class="btn btn-primary btn-sm" @click="showAddRule=true">+ 新增规则</button>
+    </div>
+  </div>
+
+  <div class="level-tabs rules-tabs">
+    <div class="level-tab" :class="{active:tab==='ruleCommon'}" @click="navigateTo('ruleCommon')">通用基础</div>
+    <div class="level-tab" :class="{active:tab==='ruleFactory'}" @click="navigateTo('ruleFactory')">制造业/服务业</div>
+    <div class="level-tab" :class="{active:tab==='ruleConstruction'}" @click="navigateTo('ruleConstruction')">工程建设</div>
+  </div>
+
+  <div class="stats-grid rules-stats-grid">
+    <div class="stat-card stat-total"><div class="stat-num">{{rules.length}}</div><div class="stat-label">当前规则数</div></div>
+    <div class="stat-card stat-red"><div class="stat-num">{{rulesRedLineCount}}</div><div class="stat-label">红线规则</div></div>
+    <div class="stat-card stat-blue"><div class="stat-num">{{rulesT2Count}}</div><div class="stat-label">含 T2 规则</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--accent)">{{domainName}}</div><div class="stat-label">当前领域</div></div>
+  </div>
+
+  <div class="card card-padded rules-intro-panel">
+    <div class="rules-intro-grid">
+      <div>
+        <div class="rules-intro-title">配置说明</div>
+        <div class="rules-intro-text">规则变更会实时影响企业评估结果，建议先统一领域口径，再调整 T1 / T2 阈值与分值。</div>
+      </div>
+      <div class="surface-inline-note">红线规则建议谨慎修改，并保留变更依据。</div>
+    </div>
+  </div>
+
+  <div class="page-section">
+    <div class="page-section-header">
+      <h3>规则列表</h3>
+      <span>点击卡片展开编辑</span>
+    </div>
+    <div class="rules-stack">
+      <div class="rule-card enhanced-rule-card" v-for="rule in rules" :key="rule.key">
+        <div class="rule-header" @click="rule._expanded = !rule._expanded" style="cursor:pointer">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; gap:16px;">
+            <div>
+              <div class="rule-name">{{rule.name}} <span v-if="rule.is_red_line" class="redline-badge">红线</span></div>
+              <div class="rule-category">维度分类：{{rule.category}} · 五维分类：{{rule.five_category||'—'}} · 编码：{{rule.key}}</div>
+            </div>
+            <div class="rule-summary-meta">
+              <span>{{rule.operator}} {{rule.threshold}}</span>
+              <span>{{rule.score}} 分</span>
+              <span style="font-size:1.2rem;color:var(--muted);transition:transform .2s" :style="{transform:rule._expanded?'rotate(180deg)':'rotate(0deg)'}">⌄</span>
+            </div>
+          </div>
+        </div>
+        <div v-show="rule._expanded">
+          <div class="rule-desc" style="margin-top:10px">{{rule.description||'暂无规则说明'}}</div>
+          <div class="rule-fields">
+            <div class="field-group"><div class="field-label">规则名称</div><input class="field-input" v-model="rule.name"></div>
+            <div class="field-group"><div class="field-label">维度分类</div><input class="field-input" v-model="rule.category"></div>
+            <div class="field-group"><div class="field-label">五维分类</div><input class="field-input" v-model="rule.five_category"></div>
+            <div class="field-group"><div class="field-label">数据字段</div><input class="field-input" v-model="rule.field"></div>
+            <div class="field-group"><div class="field-label">运算符</div><select class="field-input" v-model="rule.operator"><option value="&gt;=">大于等于(&gt;=)</option><option value="&lt;=">小于等于(&lt;=)</option><option value="&gt;">大于(&gt;)</option><option value="&lt;">小于(&lt;)</option><option value="==">等于(==)</option><option value="!=">不等于(!=)</option></select></div>
+            <div class="field-group"><div class="field-label">T1 阈值</div><input class="field-input" v-model="rule.threshold"></div>
+            <div class="field-group"><div class="field-label">T1 分值</div><input class="field-input" type="number" v-model.number="rule.score"></div>
+            <div class="field-group"><div class="field-label">T2 阈值</div><input class="field-input" v-model="rule.threshold_t2"></div>
+            <div class="field-group"><div class="field-label">T2 分值</div><input class="field-input" type="number" v-model.number="rule.score_t2"></div>
+          </div>
+          <div style="margin-top:12px">
+            <div class="field-group"><div class="field-label">扣分规则</div><textarea class="field-input" rows="2" style="resize:vertical;font-family:inherit" v-model="rule.scoring_rule"></textarea></div>
+            <div class="field-group"><div class="field-label">规则说明（用于画像与导出展示）</div><textarea class="field-input" rows="2" style="resize:vertical;font-family:inherit" v-model="rule.description"></textarea></div>
+            <div class="field-group"><div class="field-label">数据来源</div><input class="field-input" v-model="rule.source"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+            <div class="chk-wrap"><input type="checkbox" v-model="rule.is_red_line"><label class="field-label" style="color:var(--red)">触发即作为红线处理</label></div>
+            <div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" @click="deleteRule(rule.key,rule.name)">删除</button><button class="btn btn-primary btn-sm" @click="saveRule(rule)">保存</button></div>
+          </div>
+        </div>
+      </div>
+      <div v-if="!rules.length" class="empty-state">当前领域暂无规则</div>
+    </div>
+  </div>
+</template>
+
 <template v-if="tab==='system'">
   <div class="page-header">
     <h2>全局系统与接口参数</h2>
@@ -590,39 +620,306 @@
   <div style="text-align:right;margin-top:16px"><button class="btn btn-primary" @click="saveSys">保存系统配置</button></div>
 </template>
 
+<!-- ── PROFILE ── -->
+<!-- 统一风格 PROFILE -->
+<template v-if="tab==='profile'">
+  <div class="page-header surface-header profile-command-header">
+    <div>
+      <h2>{{profileData?.enterprise?.name||'企业画像'}}</h2>
+      <p v-if="profileData?.enterprise">{{profileData.enterprise.credit_code||''}} · {{profileData.enterprise.enterprise_type==='factory'?'制造业/服务业':'工程建设'}}<span v-if="profileData.enterprise.district"> · {{profileData.enterprise.district}}</span><span v-if="profileData.enterprise.last_assessed_at"> · 最近评估 {{profileData.enterprise.last_assessed_at.substring(0,10)}}</span></p>
+      <p v-else>选择一家企业，查看完整风险画像、明细结构与历史走势。</p>
+    </div>
+    <div class="header-chip-group">
+      <button class="btn btn-nav btn-sm" :disabled="profileIndex<=0" @click="prevProfile" :title="prevProfileName?('上一家：'+prevProfileName):'已是第一家'">◀ 上一家</button>
+      <button class="btn btn-nav btn-sm" :disabled="profileIndex<0 || profileIndex>=profileEnterpriseIds.length-1" @click="nextProfile" :title="nextProfileName?('下一家：'+nextProfileName):'已是最后一家'">下一家 ▶</button>
+      <button class="btn btn-primary btn-sm profile-export-btn" @click="exportProfileReport" :disabled="!profileData?.enterprise">导出画像</button>
+      <button class="btn btn-back btn-sm" @click="navigateTo('enterprises')">← 返回企业列表</button>
+      <div class="profile-nav-preview" v-if="profileEnterpriseIds.length>1">
+        <span>上一家：{{prevProfileName||'—'}}</span>
+        <span>下一家：{{nextProfileName||'—'}}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-layout unified-profile-layout">
+    <div class="profile-sidebar">
+      <button class="btn btn-sm ps-back-btn" @click="navigateTo('enterprises')">← 返回企业总览</button>
+      <div class="ps-header">企业池 <span class="ps-count">{{psFilteredEnts.length}} / {{profilePool.total || psFilteredEnts.length}} 家</span></div>
+      <div class="ps-filters">
+        <input class="ps-input" v-model="psSearch" placeholder="搜索全部企业名称或代码...">
+        <select class="ps-select" v-model="psLevel">
+          <option value="all">全部等级</option>
+          <option value="红色预警">红色预警</option>
+          <option value="黄色预警">黄色预警</option>
+          <option value="蓝色预警">蓝色预警</option>
+          <option value="绿色预警">绿色预警</option>
+        </select>
+        <select class="ps-select" v-model="psDistrict">
+          <option value="">全部街道</option>
+          <option v-for="d in psDistrictList" :key="'profile-'+d" :value="d">{{d}}</option>
+        </select>
+        <select class="ps-select" v-model="psType">
+          <option value="">全部类型</option>
+          <option value="factory">制造业/服务业</option>
+          <option value="construction">工程建设</option>
+        </select>
+      </div>
+      <div class="ps-list">
+        <div class="ps-item" :class="[riskLevelClass(e.risk_level),String(profileEnterpriseId)===String(e.id)?'ps-item-active':'']" v-for="e in psFilteredEnts" :key="e.id" @click="openProfile(e.id)">
+          <div class="psi-top">
+            <span class="psi-name">{{e.name}}</span>
+            <span class="badge-sm" :class="badgeClass(e.risk_level)">{{e.risk_level||'未评估'}}</span>
+          </div>
+          <div class="psi-meta">
+            <span>{{e.enterprise_type==='factory'?'制造':'建设'}}</span>
+            <span v-if="e.district">{{e.district}}</span>
+            <span class="table-score-pill psi-score-pill" :class="riskLevelClass(e.risk_level)">{{e.risk_score>=0?e.risk_score+'分':'未评估'}}</span>
+            <span v-if="e.is_red_line" class="psi-redline">触发红线</span>
+          </div>
+        </div>
+        <div v-if="!psFilteredEnts.length" class="ps-empty">没有匹配企业</div>
+      </div>
+    </div>
+
+    <div class="profile-main">
+      <div v-if="profileData?.enterprise">
+        <div class="card profile-hero-card">
+          <div class="profile-hero-main">
+            <div class="profile-hero-title-row">
+              <h3>{{profileData.enterprise.name}}</h3>
+              <span class="badge" :class="badgeClass(profileData.enterprise.risk_level)">{{profileData.enterprise.risk_level||'未评估'}}</span>
+            </div>
+            <div class="profile-meta-grid">
+              <span><strong>统一代码：</strong>{{profileData.enterprise.credit_code||'-'}}</span>
+              <span><strong>企业类型：</strong>{{profileData.enterprise.enterprise_type==='factory'?'制造业/服务业':'工程建设'}}</span>
+              <span><strong>所属街道：</strong>{{profileData.enterprise.district||'-'}}</span>
+              <span><strong>最近评估：</strong>{{profileData.enterprise.last_assessed_at||'未评估'}}</span>
+            </div>
+          </div>
+          <div class="profile-score-panel">
+            <div class="profile-score-label">综合风险分</div>
+            <div class="profile-score-value" :style="{color:profileData.enterprise.risk_level==='红色预警'?'var(--red)':profileData.enterprise.risk_level==='黄色预警'?'var(--yellow)':profileData.enterprise.risk_level==='蓝色预警'?'var(--blue)':'var(--green)'}">{{profileData.enterprise.risk_score>=0?profileData.enterprise.risk_score:'-'}}</div>
+            <div class="profile-score-note">{{profileData.enterprise.is_red_line?'已触发红线处置':'当前未触发红线'}}</div>
+          </div>
+        </div>
+
+        <div class="stats-grid profile-stats-grid">
+          <div class="stat-card stat-total compact"><div class="stat-num">{{profileData.enterprise.risk_score>=0?profileData.enterprise.risk_score:'-'}}</div><div class="stat-label">风险分</div></div>
+          <div class="stat-card stat-yellow compact"><div class="stat-num">{{groupedRiskDetails.length}}</div><div class="stat-label">维度数</div></div>
+          <div class="stat-card stat-blue compact"><div class="stat-num">{{profileData.enterprise.risk_details?.length||0}}</div><div class="stat-label">异常项</div></div>
+          <div class="stat-card stat-red compact"><div class="stat-num">{{profileData.enterprise.is_red_line?'是':'否'}}</div><div class="stat-label">红线状态</div></div>
+        </div>
+
+        <div v-if="profileData.enterprise.recommended_actions" class="profile-action-banner">
+          <strong>处置建议：</strong>{{profileData.enterprise.recommended_actions}}
+        </div>
+
+        <div class="two-panel-grid profile-chart-grid">
+          <div class="card card-padded">
+            <div class="page-section-header" style="margin-bottom:12px"><h3>风险趋势</h3><span>最近 6 次评估</span></div>
+            <div id="trendChart" style="width:100%;height:280px"></div>
+            <div v-if="!profileData?.history?.length" class="empty-state chart-empty-state">暂无历史评估数据</div>
+          </div>
+          <div class="card card-padded">
+            <div class="page-section-header" style="margin-bottom:12px"><h3>风险雷达</h3><span>重点维度穿透</span></div>
+            <div id="radarChart" style="width:100%;height:280px"></div>
+            <div v-if="!profileData?.radar?.length" class="empty-state chart-empty-state">暂无雷达数据</div>
+          </div>
+        </div>
+
+        <div class="two-panel-grid profile-detail-grid">
+          <div class="card card-padded" v-if="groupedRiskDetails.length">
+            <div class="page-section-header" style="margin-bottom:12px"><h3>风险明细</h3><span>{{groupedRiskDetails.length}} 个维度</span></div>
+            <div class="detail-category" v-for="dim in groupedRiskDetails" :key="dim.category" style="margin-bottom:10px;border:1px solid var(--card-border);border-radius:8px;overflow:hidden">
+              <div @click="expandedGroups[dim.category]=!expandedGroups[dim.category]" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-warm);cursor:pointer">
+                <span style="font-weight:600;font-size:.85rem">{{dim.category}}</span>
+                <span style="display:flex;align-items:center;gap:12px">
+                  <span style="color:var(--red);font-weight:700;font-size:.9rem">{{dim.totalScore}}分</span>
+                  <span style="font-size:.78rem;color:var(--muted)">{{dim.items.length}}项</span>
+                  <span style="font-size:.72rem;transition:transform .2s" :style="{transform:expandedGroups[dim.category]?'rotate(180deg)':'rotate(0deg)'}">⌄</span>
+                </span>
+              </div>
+              <div v-if="expandedGroups[dim.category]" style="padding:8px 16px 12px">
+                <div class="detail-item detail-item-row" v-for="item in dim.items" :key="item.item_name">
+                  <span>{{item.item_name}}</span>
+                  <span style="font-weight:600;color:var(--red)">+{{item.score}}分</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card card-padded" v-else>
+            <div class="page-section-header" style="margin-bottom:12px"><h3>风险明细</h3></div>
+            <div class="empty-state chart-empty-state">当前企业暂未触发风险项</div>
+          </div>
+
+          <div class="card card-padded">
+            <div class="page-section-header" style="margin-bottom:12px"><h3>指标触发明细</h3><span>{{profileData?.indicator_details?.length||0}} 项触发</span></div>
+            <div v-if="profileData?.indicator_details?.length" class="indicator-detail-list">
+              <div class="indicator-detail-item" v-for="item in profileData.indicator_details" :key="item.item_name" :class="{ 'idi-redline': item.is_red_line }">
+                <div class="idi-header">
+                  <span class="idi-name">{{item.item_name}}</span>
+                  <span v-if="item.is_red_line" class="idi-redline-tag">红线</span>
+                  <span class="idi-score">+{{item.score}}分</span>
+                </div>
+                <div class="idi-body">
+                  <span class="idi-category">{{item.category}}</span>
+                  <span class="idi-condition">
+                    <span class="idi-field">{{item.field}}</span>
+                    <span class="idi-op">{{item.operator}}</span>
+                    <span class="idi-threshold">{{typeof item.threshold==='boolean'?(item.threshold?'是':'否'):item.threshold}}</span>
+                  </span>
+                  <span class="idi-arrow">→</span>
+                  <span class="idi-actual">{{typeof item.actual_value==='boolean'?(item.actual_value?'是':'否'):(item.actual_value!==null&&item.actual_value!==undefined?item.actual_value:'—')}}</span>
+                </div>
+                <div class="idi-desc" v-if="item.description">{{item.description}}</div>
+              </div>
+            </div>
+            <div v-else class="empty-state chart-empty-state">当前企业未触发任何预警指标</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="empty-state profile-empty-state">
+        <span>请先从左侧企业池选择一家企业</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+</section>
+</transition>
 </main>
 
 
-<!-- ===== LOGIN MODAL ===== -->
-<div class="modal-overlay" v-if="showLogin" @click.self="showLogin=false">
-  <div class="modal" style="max-width:400px">
-    <h3>管理员登录</h3>
-    <div class="field-group" style="margin-bottom:16px">
-      <div class="field-label">用户名</div>
-      <input class="field-input" v-model="loginForm.username" placeholder="请输入用户名" @keyup.enter="doLogin" style="font-family:inherit;font-size:1rem">
+<!-- ===== BIG SCREEN MODE ===== -->
+<div class="bigscreen-overlay" :class="{active:bigscreen.active}">
+  <div class="bigscreen-header">
+    <div class="bigscreen-title">宝安区欠薪预警监管平台 · 数据大屏</div>
+    <div class="bigscreen-controls">
+      <span class="bigscreen-timer">{{bigscreen.view+1}} / {{bigscreen.views}}</span>
+      <button class="bigscreen-btn" @click="prevView">‹</button>
+      <button class="bigscreen-btn" @click="nextView">›</button>
+      <button class="bigscreen-btn bigscreen-btn-exit" @click="closeBigScreen">✕ 退出</button>
     </div>
-    <div class="field-group" style="margin-bottom:20px">
-      <div class="field-label">密码</div>
-      <input class="field-input" type="password" v-model="loginForm.password" placeholder="请输入密码" @keyup.enter="doLogin" style="font-family:inherit;font-size:1rem">
+  </div>
+
+  <!-- View 0: Overview -->
+  <div class="bigscreen-view" v-if="bigscreen.view===0">
+    <div class="bs-hero">
+      <div class="bs-hero-title">欠薪预警态势感知</div>
+      <div class="bs-hero-sub">宝安区 · 穿透式监管数据大屏</div>
     </div>
-    <div v-if="loginError" style="color:var(--red);font-size:.85rem;margin-bottom:12px;padding:8px 12px;background:var(--red-subtle);border-radius:var(--radius-sm)">{{loginError}}</div>
-    <div class="modal-actions">
-      <button class="btn" @click="showLogin=false;loginError=''">取消</button>
-      <button class="btn btn-primary" @click="doLogin" :disabled="loginLoading">{{loginLoading?'登录中...':'确认登录'}}</button>
+    <div class="bs-metrics">
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--accent)">{{dash.total}}</div>
+        <div class="bsm-label">监管企业总数</div>
+      </div>
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--red)">{{dash.red}}</div>
+        <div class="bsm-label">红色预警</div>
+      </div>
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--green)">{{dash.green}}</div>
+        <div class="bsm-label">绿色预警</div>
+      </div>
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--yellow)">{{dash.yellow}}</div>
+        <div class="bsm-label">黄色预警</div>
+      </div>
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--blue)">{{dash.blue}}</div>
+        <div class="bsm-label">蓝色预警</div>
+      </div>
+      <div class="bs-metric">
+        <div class="bsm-num" style="color:var(--green)">{{dash.assessed}}</div>
+        <div class="bsm-label">已评估</div>
+      </div>
+    </div>
+    <div class="bs-sub-metrics">
+      <div class="bss-item">
+        <div class="bss-num">{{dash.red_line_count}}</div>
+        <div class="bss-label">一票否决</div>
+      </div>
+      <div class="bss-item">
+        <div class="bss-num">{{dash.unassessed}}</div>
+        <div class="bss-label">待评估</div>
+      </div>
+    </div>
+    <div class="bs-top-risk" v-if="dash.top_risk && dash.top_risk.length">
+      <div class="bstr-title">高风险排名 TOP {{Math.min(8, dash.top_risk.length)}}</div>
+      <div class="bstr-list">
+        <div class="bstr-item" v-for="(e,i) in dash.top_risk.slice(0,8)" :key="e.id">
+          <span class="bstr-rank" :class="'bstr-r'+(i+1)">{{i+1}}</span>
+          <span class="bstr-name">{{e.name}}</span>
+          <span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span>
+          <span class="bstr-score" :style="{color:e.risk_level==='红色预警'?'var(--red)':e.risk_level==='绿色预警'?'var(--green)':'var(--yellow)'}">{{e.risk_score}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View 1: Trend Chart -->
+  <div class="bigscreen-view" v-if="bigscreen.view===1">
+    <div class="bs-chart-header">企业风险评估趋势</div>
+    <div id="bsTrendChart" class="bs-chart-box"></div>
+  </div>
+
+  <!-- View 2: Map -->
+  <div class="bigscreen-view" v-if="bigscreen.view===2">
+    <div class="bs-chart-header">红色预警街道聚合图</div>
+    <div id="bsMapContainer" class="bs-map-box"></div>
+  </div>
+
+  <!-- View 3: District Chart -->
+  <div class="bigscreen-view" v-if="bigscreen.view===3">
+    <div class="bs-chart-header">各街道风险分布</div>
+    <div id="bsDistrictChart" class="bs-chart-box"></div>
+  </div>
+
+  <!-- View 4: Alerts -->
+  <div class="bigscreen-view" v-if="bigscreen.view===4">
+    <div class="bs-chart-header">最新预警警报</div>
+    <div class="bs-alert-list">
+      <div class="bs-alert-empty" v-if="!dash.top_risk || !dash.top_risk.length">暂无预警警报</div>
+      <div class="bs-alert-item" v-for="e in dash.top_risk" :key="e.id" :style="{borderLeftColor: e.risk_level==='红色预警'?'var(--red)':e.risk_level==='绿色预警'?'var(--green)':'var(--yellow)'}">
+        <div class="bsa-top">
+          <span class="bsa-name">{{e.name}}</span>
+          <span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span>
+        </div>
+        <div class="bsa-meta">
+          <span>{{e.credit_code}}</span>
+          <span>风险分: {{e.risk_score}}</span>
+          <span v-if="e.is_red_line" style="color:var(--red)">⚠ 触发红线</span>
+        </div>
+        <div class="bsa-detail" v-if="e.risk_details && e.risk_details.length">{{e.risk_details.map(function(d){return d.item_name}).join('、')}}</div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- ===== LOGIN MODAL ===== -->
+<div class="modal-overlay" v-if="showLogin" @click.self="showLogin=false"><div class="modal" style="max-width:360px">
+  <h3 style="margin-bottom:16px">管理员登录</h3>
+  <div class="field-group" style="margin-bottom:12px"><div class="field-label">用户名</div><input class="field-input" v-model="loginForm.username" placeholder="用户名" @keyup.enter="doLogin" style="font-family:inherit"></div>
+  <div class="field-group" style="margin-bottom:16px"><div class="field-label">密码</div><input class="field-input" type="password" v-model="loginForm.password" placeholder="密码" @keyup.enter="doLogin" style="font-family:inherit"></div>
+  <div v-if="loginError" style="color:var(--red);font-size:.82rem;margin-bottom:10px;padding:6px 10px;background:var(--red-subtle);border-radius:var(--radius-sm)">{{loginError}}</div>
+  <div class="modal-actions"><button class="btn" @click="showLogin=false;loginError=''">取消</button><button class="btn btn-primary" @click="doLogin" :disabled="loginLoading">{{loginLoading?'登录中...':'确认登录'}}</button></div>
+</div></div>
 <!-- ===== ADD RULE MODAL ===== -->
 <div class="modal-overlay" v-if="showAddRule" @click.self="showAddRule=false"><div class="modal">
   <h3>新增预警指标</h3>
   <div class="field-group"><div class="field-label">指标标识（英文唯一）</div><input class="field-input" v-model="newRule.key"></div>
   <div class="field-group"><div class="field-label">指标名称</div><input class="field-input" v-model="newRule.name"></div>
   <div class="field-group"><div class="field-label">所属维度</div><input class="field-input" v-model="newRule.category"></div>
+  <div class="field-group"><div class="field-label">五维分类</div><input class="field-input" v-model="newRule.five_category"></div>
   <div class="field-group"><div class="field-label">数据字段标识</div><input class="field-input" v-model="newRule.field"></div>
   <div class="field-group"><div class="field-label">运算符</div><select class="field-input" v-model="newRule.operator"><option value="&gt;=">&gt;=</option><option value="&lt;=">&lt;=</option><option value="==">==</option><option value="!=">!=</option></select></div>
-  <div class="field-group"><div class="field-label">阈值</div><input class="field-input" v-model="newRule.threshold"></div>
-  <div class="field-group"><div class="field-label">风险分值</div><input class="field-input" type="number" v-model.number="newRule.score"></div>
+  <div class="field-group"><div class="field-label">T1 阈值</div><input class="field-input" v-model="newRule.threshold"></div>
+  <div class="field-group"><div class="field-label">T1 分值</div><input class="field-input" type="number" v-model.number="newRule.score"></div>
+  <div class="field-group"><div class="field-label">T2 阈值</div><input class="field-input" v-model="newRule.threshold_t2"></div>
+  <div class="field-group"><div class="field-label">T2 分值</div><input class="field-input" type="number" v-model.number="newRule.score_t2"></div>
+  <div class="field-group"><div class="field-label">扣分规则</div><textarea class="field-input" rows="2" style="resize:vertical;font-family:inherit" v-model="newRule.scoring_rule"></textarea></div>
+  <div class="field-group"><div class="field-label">数据来源</div><input class="field-input" v-model="newRule.source"></div>
   <div class="field-group"><div class="field-label">指标说明</div><textarea class="field-input" rows="2" style="resize:vertical;font-family:inherit" v-model="newRule.description"></textarea></div>
   <div class="chk-wrap" style="margin-top:8px"><input type="checkbox" v-model="newRule.is_red_line"><label class="field-label" style="color:var(--red)">一票否决红线</label></div>
   <div class="modal-actions"><button class="btn" @click="showAddRule=false">取消</button><button class="btn btn-primary" @click="addRule">确认新增</button></div>
@@ -630,74 +927,135 @@
 
 <!-- ===== ADD ENTERPRISE MODAL ===== -->
 <div class="modal-overlay" v-if="showAddEnt" @click.self="showAddEnt=false"><div class="modal">
-  <h3>录入新企业</h3>
-  <div class="field-group"><div class="field-label">企业名称 *</div><input class="field-input" v-model="newEnt.name"></div>
-  <div class="field-group"><div class="field-label">统一社会信用代码 *</div><input class="field-input" v-model="newEnt.credit_code"></div>
-  <div class="field-group"><div class="field-label">企业类型</div><select class="field-input" v-model="newEnt.enterprise_type"><option value="factory">工厂/服务业</option><option value="construction">工地/工程</option></select></div>
-  <div class="field-group"><div class="field-label">所在街道</div><input class="field-input" v-model="newEnt.district"></div>
-  <div class="field-group"><div class="field-label">所属行业</div><input class="field-input" v-model="newEnt.industry"></div>
-  <div class="field-group"><div class="field-label">联系人</div><input class="field-input" v-model="newEnt.contact_person"></div>
-  <div class="field-group"><div class="field-label">联系电话</div><input class="field-input" v-model="newEnt.contact_phone"></div>
-  <div class="field-group"><div class="field-label">在册员工数</div><input class="field-input" type="number" v-model.number="newEnt.employee_count"></div>
-  <div class="modal-actions"><button class="btn" @click="showAddEnt=false">取消</button><button class="btn btn-primary" @click="addEnt">确认录入</button></div>
+  <h3>录入企业</h3>
+  <div class="modal-subtitle">批量导入企业名册</div>
+  <div class="upload-block">
+    <div class="upload-actions">
+      <a :href="'/api/v1/templates/enterprise-registry'" class="btn btn-sm btn-ghost" style="text-decoration:none">↓ 下载模板</a>
+      <input type="file" accept=".xlsx,.xls" @change="onRegistryFileChange" style="font-size:.82rem">
+      <button class="btn btn-primary btn-sm" @click="doRegistryUpload" :disabled="registryUploading||!registryFile">{{registryUploading?'上传中...':'确认上传'}}</button>
+    </div>
+    <div v-if="registryResult" :style="{padding:'8px 12px',borderRadius:'8px',marginTop:'12px',fontSize:'.82rem',background:registryResult.indexOf('成功')>-1||registryResult.indexOf('完成')>-1?'var(--green-subtle)':'var(--red-subtle)',color:registryResult.indexOf('成功')>-1||registryResult.indexOf('完成')>-1?'var(--green)':'var(--red)'}">{{registryResult}}</div>
+  </div>
+
+  <button class="collapse-toggle" @click="showManualEntry=!showManualEntry">
+    <span>{{showManualEntry?'▼':'▶'}}</span> 手动录入单个企业
+  </button>
+
+  <div v-show="showManualEntry" class="manual-entry-grid">
+    <div class="field-group"><div class="field-label">企业名称 *</div><input class="field-input" v-model="newEnt.name"></div>
+    <div class="field-group"><div class="field-label">统一社会信用代码 *</div><input class="field-input" v-model="newEnt.credit_code"></div>
+    <div class="field-group"><div class="field-label">企业类型</div><select class="field-input" v-model="newEnt.enterprise_type"><option value="factory">工厂/服务业</option><option value="construction">工地/工程</option></select></div>
+    <div class="field-group"><div class="field-label">所在街道</div><input class="field-input" v-model="newEnt.district"></div>
+    <div class="field-group"><div class="field-label">所属行业</div><input class="field-input" v-model="newEnt.industry"></div>
+    <div class="field-group"><div class="field-label">联系人</div><input class="field-input" v-model="newEnt.contact_person"></div>
+    <div class="field-group"><div class="field-label">联系电话</div><input class="field-input" v-model="newEnt.contact_phone"></div>
+    <div class="field-group"><div class="field-label">在册员工数</div><input class="field-input" type="number" v-model.number="newEnt.employee_count"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn" @click="showAddEnt=false">取消</button>
+    <button class="btn btn-primary" @click="addEnt">确认录入</button>
+  </div>
 </div></div>
 
-<!-- ===== ASSESS MODAL ===== -->
-<div class="modal-overlay" v-if="showAssess" @click.self="showAssess=false"><div class="modal">
-  <h3>对「{{assessEnt?assessEnt.name:''}}」执行风险评估</h3>
-  <div style="font-size:.85rem;color:var(--muted);margin-bottom:16px">请输入该企业的原始指标数据（JSON格式），系统将自动匹配已配置的规则进行评分。</div>
-  <div class="field-group"><div class="field-label">原始指标数据 (JSON)</div><textarea class="field-input" rows="12" style="resize:vertical;font-family:monospace;font-size:.88rem" v-model="assessData"></textarea></div>
-  <div class="modal-actions"><button class="btn" @click="showAssess=false">取消</button><button class="btn btn-primary" @click="doAssess">执行评估</button></div>
-</div></div>
-
-<!-- ===== PROFILE MODAL ===== -->
-<div class="modal-overlay" v-if="showProfile" @click.self="showProfile=false">
-  <div class="modal" style="max-width:900px;width:95%">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid var(--panel-border);padding-bottom:15px;flex-wrap:wrap;gap:12px">
-      <div>
-        <h2 style="margin:0;font-size:1.3rem;color:var(--text);display:flex;align-items:center;gap:10px;flex-wrap:wrap">{{profileData?.enterprise.name}} <span class="badge" :class="badgeClass(profileData?.enterprise.risk_level)">{{profileData?.enterprise.risk_level}}</span></h2>
-        <div style="margin-top:6px;font-size:.85rem;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap">
-          <span>信用代码：{{profileData?.enterprise.credit_code}}</span>
-          <span>行业：{{profileData?.enterprise.industry||'—'}}</span>
-          <span>联系人：{{profileData?.enterprise.contact_person||'—'}}</span>
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:1.8rem;font-weight:700" :style="{color:profileData?.enterprise.risk_level==='红色预警'?'var(--red)':profileData?.enterprise.risk_level==='橙色预警'?'var(--orange)':profileData?.enterprise.risk_level==='黄色预警'?'var(--yellow)':'var(--blue)'}">{{profileData?.enterprise.risk_score}} <span style="font-size:.9rem;color:var(--muted);font-weight:400">分</span></div>
-        <div v-if="profileData?.enterprise.is_red_line" style="color:var(--red);font-weight:bold;font-size:.85rem">⚠ 触发一票否决红线</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap">
-      <div style="flex:1;min-width:280px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:15px">
-        <h3 style="margin-top:0;margin-bottom:10px;font-size:.95rem">风险分值走势</h3>
-        <div id="trendChart" style="width:100%;height:220px"></div>
-      </div>
-      <div style="flex:1;min-width:280px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:15px">
-        <h3 style="margin-top:0;margin-bottom:10px;font-size:.95rem">风险维度雷达图</h3>
-        <div id="radarChart" style="width:100%;height:220px"></div>
-      </div>
-    </div>
-    <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:15px">
-      <h3 style="margin-top:0;margin-bottom:10px;font-size:.95rem">当前扣分明细与处置建议</h3>
-      <div v-if="profileData?.enterprise.risk_details&&profileData.enterprise.risk_details.length">
-        <div v-for="d in profileData.enterprise.risk_details" :key="d.item_name" style="padding:8px 0;border-bottom:1px dashed var(--card-border);display:flex;justify-content:space-between">
-          <div><span class="badge" style="background:var(--card-bg);border:1px solid var(--card-border);color:var(--text-secondary);font-weight:400;font-size:.74rem;margin-right:8px;box-shadow:none">{{d.category}}</span> {{d.item_name}}</div>
-          <div style="color:var(--red);font-weight:bold">+{{d.score}}分</div>
-        </div>
-        <div style="margin-top:12px;padding:10px 14px;background:rgba(250,140,22,.08);border-left:4px solid var(--orange);border-radius:4px;font-size:.85rem">
-          <strong>处置建议：</strong>{{profileData.enterprise.recommended_actions}}
-        </div>
-      </div>
-      <div v-else style="color:var(--muted);text-align:center;padding:20px">无扣分项，企业状态良好</div>
-    </div>
-    <div class="modal-actions" style="margin-top:20px"><button class="btn btn-primary" @click="showProfile=false">关闭画像</button></div>
+<!-- ===== ASSESS FLOATING PANEL ===== -->
+<div class="assess-panel" v-if="showAssess">
+  <div class="assess-panel-header">
+    <span>评估：{{assessEnt?assessEnt.name:''}}</span>
+    <button class="assess-panel-close" @click="showAssess=false">✕</button>
+  </div>
+  <div class="assess-panel-body">
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">输入该企业的原始指标数据（JSON），系统自动按规则评分。</div>
+    <textarea class="field-input" rows="4" style="resize:vertical;font-family:monospace;font-size:.8rem;width:100%" v-model="assessData"></textarea>
+  </div>
+  <div class="assess-panel-footer">
+    <button class="btn btn-sm" @click="showAssess=false">取消</button>
+    <button class="btn btn-primary btn-sm" @click="doAssess">执行评估</button>
   </div>
 </div>
+
+
+<!-- ===== UPLOAD INDICATOR DATA MODAL ===== -->
+<div class="modal-overlay" v-if="showUploadIndicators" @click.self="showUploadIndicators=false"><div class="modal">
+  <h3>上传企业指标数据</h3>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px">上传包含企业指标数据的 Excel 文件，系统将自动匹配企业并执行风险评估。</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <a :href="'/api/v1/templates/indicator-data'" class="btn btn-sm btn-ghost" style="text-decoration:none">↓ 下载指标数据模板</a>
+    <span style="font-size:.78rem;color:var(--muted)">请按模板格式填写数据后上传</span>
+  </div>
+  <div class="field-group" style="margin-bottom:16px">
+    <div class="field-label">上传文件</div>
+    <input type="file" accept=".xlsx,.xls" @change="onUploadIndicatorFileChange" style="font-size:.82rem">
+  </div>
+  <div v-if="uploadIndicatorResult" :style="{padding:'8px 12px',borderRadius:'6px',marginBottom:'12px',fontSize:'.82rem',background:uploadIndicatorResult.indexOf('成功')>-1||uploadIndicatorResult.indexOf('完成')>-1?'var(--green-subtle)':'var(--red-subtle)',color:uploadIndicatorResult.indexOf('成功')>-1||uploadIndicatorResult.indexOf('完成')>-1?'var(--green)':'var(--red)'}">{{uploadIndicatorResult}}</div>
+  <div class="modal-actions"><button class="btn" @click="showUploadIndicators=false;uploadIndicatorResult=null">取消</button><button class="btn btn-primary" @click="doUploadIndicators" :disabled="uploadIndicatorUploading||!uploadIndicatorFile">{{uploadIndicatorUploading?'上传中...':'确认上传并评估'}}</button></div>
+</div></div>
 
 <!-- ===== TOAST ===== -->
 <div class="toast" :class="{show:toast.vis}">{{toast.msg}}</div>
 
+<!-- ===== BATCH NOTIFICATION ===== -->
+<div class="batch-notif-bottom" v-if="batchAssessing || batchPhase==='complete' || batchPhase==='error'">
+  <div class="batch-notif-glow"></div>
+  <div class="batch-notif-topline" v-if="batchPhase!=='complete' && batchPhase!=='error'">
+    <div class="batch-notif-spinner" :class="{done:batchPhase==='complete',error:batchPhase==='error'}"></div>
+    <div class="batch-notif-text">{{batchStatusText}}</div>
+  </div>
+  <div class="batch-indicator-scroll">
+    <div class="batch-indicator-grid"></div>
+    <div class="batch-indicator-scan" v-if="batchPhase!=='complete' && batchPhase!=='error'"></div>
+    <div class="batch-pulse-bars" v-if="batchPhase!=='complete' && batchPhase!=='error'">
+      <span v-for="n in 8" :key="'bar-'+n" :style="{animationDelay:(n*0.08)+'s'}"></span>
+    </div>
+    <template v-if="batchPhase==='intro'">
+      <div class="bis-line bis-intro">模型初始化中...</div>
+    </template>
+    <template v-else-if="batchPhase==='scrolling'">
+      <div class="bis-stream-window">
+        <div
+          class="bis-line bis-indicator"
+          :class="['depth-'+item.distance,item.active?'is-active':'']"
+          v-for="(item,i) in batchVisibleIndicators"
+          :key="item.name+'-'+item.index+'-'+i"
+        >{{item.name}}</div>
+      </div>
+    </template>
+    <template v-else-if="batchPhase==='calculating'">
+      <div class="bis-line bis-calc">正在计算风险评分...</div>
+    </template>
+    <template v-else-if="batchPhase==='summarizing'">
+      <div class="bis-line bis-summary">正在汇总评估结果...</div>
+    </template>
+    <template v-else-if="batchPhase==='complete'">
+      <div class="batch-complete-panel">
+        <div class="batch-complete-box">
+          <div class="batch-complete-frame"></div>
+          <svg class="batch-complete-check" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <div class="batch-complete-copy">
+          <div class="bis-line bis-complete">{{batchStatusText}}</div>
+          <div class="batch-complete-sub">企业列表已自动刷新</div>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="batchPhase==='error'">
+      <div class="batch-error-panel">
+        <div class="batch-error-icon">!</div>
+        <div class="bis-line bis-error">{{batchStatusText}}</div>
+      </div>
+    </template>
+  </div>
+</div>
+
+
 </div>
 <script src="/static/js/app.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"e16be23aa2734eaf86af0a1c9a3e4f1c","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
+
+
+
+

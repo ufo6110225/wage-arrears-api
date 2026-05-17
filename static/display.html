@@ -1,66 +1,62 @@
-<!DOCTYPE html><html lang="zh-CN"><head>
+﻿<!DOCTYPE html><html lang="zh-CN"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>宝安区欠薪预警信息公示平台</title>
 <link rel="stylesheet" href="css/style.css">
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
-:root{--red:#ff4d4f;--orange:#fa8c16;--yellow:#fadb14;--green:#52c41a;--blue:#1890ff;--cyan:#00e5ff;--muted:#8c98a4;--bg:#f0f2f5;--panel:#ffffff;--panel-shadow:0 2px 12px rgba(0,0,0,.06);--text:#1a1a2e;--border:#e8e8e8;--input:#fafafa;--radius-sm:6px;--radius-md:10px;--radius-lg:14px}
-body{font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);margin:0;min-height:100vh;background-image:radial-gradient(ellipse at 20% 50%,rgba(24,144,255,.04) 0%,transparent 60%)}
-.topbar{display:flex;align-items:center;padding:0 24px;height:60px;background:linear-gradient(135deg,#001529 0%,#003a70 100%);color:#fff;box-shadow:0 2px 16px rgba(0,0,0,.2);position:sticky;top:0;z-index:100}
-.topbar .logo{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:10px;cursor:default}
-.topbar .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--cyan),var(--blue));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:#000;box-shadow:0 0 12px rgba(0,229,255,.3);flex-shrink:0}
+/* ── display.html overrides (Claude-inspired) ── */
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--canvas);color:var(--body);margin:0;min-height:100vh}
+.topbar{display:flex;align-items:center;padding:0 24px;height:64px;background:var(--surface-dark);color:var(--on-dark);position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(255,255,255,.06)}
+.topbar .logo{font-size:1rem;font-weight:500;display:flex;align-items:center;gap:10px;cursor:default;font-family:var(--font-body)}
+.topbar .logo-icon{width:34px;height:34px;background:var(--primary);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--on-primary);flex-shrink:0;font-family:var(--font-display)}
 .topbar .tabs{display:flex;gap:4px;margin-left:40px;flex:1}
-.topbar .tab{padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.88rem;color:rgba(255,255,255,.65);transition:all .2s;border:none;background:none;font-family:inherit}
-.topbar .tab:hover{color:#fff;background:rgba(255,255,255,.12)}
-.topbar .tab.active{color:#fff;background:rgba(255,255,255,.18);font-weight:600}
-.topbar .admin-btn{margin-left:auto;padding:7px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:.82rem;font-family:inherit;transition:all .2s}
-.topbar .admin-btn:hover{background:rgba(255,255,255,.18)}
+.topbar .tab{padding:8px 14px;border-radius:var(--radius-md);cursor:pointer;font-size:.88rem;color:var(--on-dark-soft);transition:all .2s;border:none;background:none;font-family:var(--font-body)}
+.topbar .tab:hover{color:var(--on-dark);background:rgba(255,255,255,.08)}
+.topbar .tab.active{color:#fff;background:var(--primary);font-weight:500}
+.topbar .admin-btn{margin-left:auto;padding:8px 16px;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:var(--on-dark);cursor:pointer;font-size:.82rem;font-family:var(--font-body);transition:all .2s;height:36px}
+.topbar .admin-btn:hover{background:rgba(255,255,255,.12)}
 .main-content{max-width:1400px;margin:0 auto;padding:24px}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.stat-card{background:var(--panel);border-radius:var(--radius-md);padding:20px;box-shadow:var(--panel-shadow);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--blue);opacity:0;transition:opacity .2s}
-.stat-card:hover::before{opacity:1}
-.stat-num{font-size:1.9rem;font-weight:700;margin-bottom:4px;letter-spacing:-.5px}
-.stat-label{font-size:.8rem;color:var(--muted)}.stat-red .stat-num{color:var(--red)}.stat-orange .stat-num{color:var(--orange)}.stat-yellow .stat-num{color:var(--yellow)}.stat-blue .stat-num{color:var(--blue)}.stat-red::before{background:var(--red)}.stat-orange::before{background:var(--orange)}.stat-yellow::before{background:var(--yellow)}.stat-blue::before{background:var(--blue)}
-.section-panel{background:var(--panel);border-radius:var(--radius-md);padding:20px;box-shadow:var(--panel-shadow);margin-bottom:20px}
-.section-panel h3{font-size:1rem;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid var(--blue);display:flex;align-items:center;gap:8px}
-.section-panel h3::before{content:'';display:inline-block;width:3px;height:16px;background:var(--blue);border-radius:2px}
+.stat-card{background:var(--surface-card);border-radius:var(--radius-md);padding:20px;transition:all .2s;position:relative;overflow:hidden;border:none}
+.stat-card:hover{background:var(--surface-cream-strong)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-num{font-family:var(--font-display);font-size:2rem;font-weight:400;margin-bottom:4px;letter-spacing:-.5px;line-height:1.2}
+.stat-label{font-size:.8rem;color:var(--muted)}
+.stat-red .stat-num{color:var(--error)}.stat-green .stat-num{color:var(--success)}.stat-yellow .stat-num{color:var(--warning)}.stat-blue .stat-num{color:var(--accent-teal)}.stat-red::before{background:var(--error)}.stat-green::before{background:var(--success)}.stat-yellow::before{background:var(--warning)}.stat-blue::before{background:var(--accent-teal)}
+.section-panel{background:var(--surface-card);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px;border:none}
+.section-panel h3{font-family:var(--font-display);font-size:1.1rem;font-weight:400;letter-spacing:-0.3px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:8px;color:var(--ink)}
+.section-panel h3::before{display:none}
 table{width:100%;border-collapse:collapse;font-size:.86rem}
-th{text-align:left;padding:10px 12px;border-bottom:2px solid #e8e8e8;color:var(--muted);font-weight:500;font-size:.8rem;white-space:nowrap}
-td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8faff}
-.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:.76rem;font-weight:500}
-.badge-red{background:#fff1f0;color:var(--red);border:1px solid #ffd4d4}
-.badge-orange{background:#fff7e6;color:var(--orange);border:1px solid #ffe0b3}
-.badge-yellow{background:#fffbe6;color:#c49d0a;border:1px solid #f5e6a0}
-.badge-blue{background:#e6f7ff;color:var(--blue);border:1px solid #b3e0ff}
-.badge-gray{background:#f5f5f5;color:#999}
+th{text-align:left;padding:10px 12px;border-bottom:1px solid var(--hairline);color:var(--muted);font-weight:500;font-size:.8rem;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--hairline-soft)}tr:hover td{background:var(--surface-soft)}
+.badge{display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);font-size:.72rem;font-weight:500;color:#fff}
+.badge-red{background:var(--error)}.badge-green{background:var(--success)}.badge-yellow{background:var(--warning);color:var(--ink)}.badge-blue{background:var(--accent-teal)}.badge-gray{background:var(--hairline);color:var(--muted)}
 .level-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.level-tab{padding:7px 18px;border-radius:20px;cursor:pointer;font-size:.82rem;border:1px solid #e0e0e0;background:#fff;transition:all .2s;color:#666}
-.level-tab:hover{border-color:var(--blue);color:var(--blue)}
-.level-tab.active{border-color:var(--blue);background:#e6f7ff;color:var(--blue);font-weight:600}
+.level-tab{padding:8px 14px;border-radius:var(--radius-md);cursor:pointer;font-size:.82rem;border:none;background:transparent;transition:all .2s;color:var(--muted);font-family:var(--font-body)}
+.level-tab:hover{background:var(--surface-card);color:var(--ink)}
+.level-tab.active{background:var(--surface-card);color:var(--ink);font-weight:500}
 .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.toolbar input,.toolbar select{padding:8px 12px;border:1px solid #e0e0e0;border-radius:var(--radius-sm);font-size:.84rem;font-family:inherit;background:#fff;outline:none;transition:border .2s,box-shadow .2s}
-.toolbar input:focus,.toolbar select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,144,255,.1)}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);animation:fadeIn .2s ease}
+.toolbar input,.toolbar select{padding:8px 12px;border:1px solid var(--hairline);border-radius:var(--radius-md);font-size:.84rem;font-family:var(--font-body);background:var(--canvas);outline:none;transition:border .2s;color:var(--ink);height:36px}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-subtle)}
+.modal-overlay{position:fixed;inset:0;background:rgba(24,23,21,.45);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{background:#fff;border-radius:var(--radius-lg);padding:28px;width:380px;box-shadow:0 8px 40px rgba(0,0,0,.15);animation:slideUp .25s ease}
+.modal{background:var(--canvas);border-radius:var(--radius-lg);padding:32px;width:440px;border:1px solid var(--hairline);animation:slideUp .25s ease}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-.modal h3{font-size:1.05rem;margin:0 0 18px;display:flex;align-items:center;gap:8px}
-.modal h3::before{content:'';display:inline-block;width:3px;height:18px;background:var(--blue);border-radius:2px}
-.modal input{width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:var(--radius-sm);font-size:.9rem;margin-bottom:12px;font-family:inherit;box-sizing:border-box;outline:none;transition:border .2s,box-shadow .2s}
-.modal input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,144,255,.1)}
+.modal h3{font-family:var(--font-display);font-size:1.15rem;font-weight:400;letter-spacing:-0.3px;margin:0 0 18px;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.modal h3::before{display:none}
+.modal input{width:100%;padding:10px 14px;border:1px solid var(--hairline);border-radius:var(--radius-md);font-size:.9rem;margin-bottom:12px;font-family:var(--font-body);box-sizing:border-box;outline:none;transition:border .2s,box-shadow .2s;background:var(--surface-soft);color:var(--ink);height:42px}
+.modal input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-subtle)}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
-.btn{padding:8px 20px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s}
-.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:#096dd9}
-.btn-cancel{background:#f5f5f5;color:#666}.btn-cancel:hover{background:#e8e8e8}
-.error-msg{color:var(--red);font-size:.82rem;margin-top:4px}
+.btn{padding:8px 16px;border-radius:var(--radius-md);border:none;cursor:pointer;font-size:.88rem;font-family:var(--font-body);transition:all .2s;line-height:1;height:36px}
+.btn-primary{background:var(--primary);color:var(--on-primary)}.btn-primary:hover{background:var(--primary-active)}
+.btn-cancel{background:var(--surface-card);color:var(--body)}.btn-cancel:hover{background:var(--surface-cream-strong)}
+.error-msg{color:var(--error);font-size:.82rem;margin-top:4px}
 .empty-state{text-align:center;padding:40px;color:var(--muted);font-size:.9rem}
-.toast{position:fixed;bottom:30px;right:30px;background:#1a1a2e;color:#fff;padding:12px 24px;border-radius:var(--radius-sm);font-size:.88rem;z-index:9999;transition:all .3s;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.toast{position:fixed;bottom:30px;right:30px;background:var(--surface-card);color:var(--ink);padding:12px 24px;border-radius:var(--radius-md);font-size:.88rem;z-index:9999;transition:all .3s;border:1px solid var(--hairline);box-shadow:0 4px 24px rgba(24,23,21,.1)}
 .toast.show{opacity:1;transform:translateY(0)}.toast:not(.show){opacity:0;transform:translateY(10px)}
 .table-wrap{overflow-x:auto}
-@media(max-width:768px){.topbar .tabs{display:none}.topbar .logo{font-size:.88rem}.topbar{padding:0 16px;height:54px}.stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}.main-content{padding:16px}.stat-num{font-size:1.5rem}.stat-card{padding:14px}}
+@media(max-width:768px){.topbar .tabs{display:none}.topbar .logo{font-size:.88rem}.topbar{padding:0 16px;height:56px}.stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}.main-content{padding:16px}.stat-num{font-size:1.6rem}.stat-card{padding:14px}}
 </style></head><body>
 <div id="app">
 <div class="topbar">
@@ -77,17 +73,26 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 
 <!-- Dashboard -->
 <template v-if="tab==='dashboard'">
-<div class="stats-grid">
-<div class="stat-card"><div class="stat-num" style="color:var(--blue)">{{dash.total}}</div><div class="stat-label">监管企业总数</div></div>
-<div class="stat-card stat-red"><div class="stat-num">{{dash.red}}</div><div class="stat-label">红色预警</div></div>
-<div class="stat-card stat-orange"><div class="stat-num">{{dash.orange}}</div><div class="stat-label">橙色预警</div></div>
-<div class="stat-card stat-yellow"><div class="stat-num">{{dash.yellow}}</div><div class="stat-label">黄色预警</div></div>
+<div class="pub-hero" style="padding:32px 0 24px">
+  <div class="pub-hero-title" style="font-size:2rem">欠薪预警态势感知</div>
+  <div class="pub-hero-desc">宝安区信用办 · 穿透式监管 · 企业风险一屏统览</div>
+  <div class="pub-metrics">
+    <div class="pm-item"><span class="pm-num" style="color:var(--accent-teal)">{{dash.total}}</span><span class="pm-label">监管企业总数</span></div>
+    <div class="pm-divider"></div>
+    <div class="pm-item"><span class="pm-num danger">{{dash.red}}</span><span class="pm-label">红色预警</span></div>
+    <div class="pm-divider"></div>
+    <div class="pm-item"><span class="pm-num safe">{{dash.green}}</span><span class="pm-label">绿色预警</span></div>
+    <div class="pm-divider"></div>
+    <div class="pm-item"><span class="pm-num warn">{{dash.yellow}}</span><span class="pm-label">黄色预警</span></div>
+    <div class="pm-divider"></div>
+    <div class="pm-item"><span class="pm-num" style="color:var(--accent-teal)">{{dash.blue}}</span><span class="pm-label">蓝色预警</span></div>
+  </div>
 </div>
 <div class="stats-grid">
-<div class="stat-card stat-blue"><div class="stat-num">{{dash.blue}}</div><div class="stat-label">蓝色预警</div></div>
-<div class="stat-card"><div class="stat-num" style="color:var(--green)">{{dash.assessed}}</div><div class="stat-label">已评估</div></div>
+<div class="stat-card"><div class="stat-num" style="color:var(--success)">{{dash.assessed}}</div><div class="stat-label">已评估</div></div>
 <div class="stat-card"><div class="stat-num" style="color:var(--muted)">{{dash.unassessed}}</div><div class="stat-label">待评估</div></div>
 <div class="stat-card stat-red"><div class="stat-num">{{dash.red_line_count}}</div><div class="stat-label">触发红线企业</div></div>
+<div class="stat-card stat-total"><div class="stat-num">{{dash.total}}</div><div class="stat-label">监管企业总数</div></div>
 </div>
 <div class="section-panel">
 <h3>高风险企业 TOP 10</h3>
@@ -95,10 +100,10 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 <table>
 <thead><tr><th>#</th><th>企业名称</th><th>信用代码</th><th>类型</th><th>风险分</th><th>等级</th></tr></thead>
 <tbody><tr v-for="(e,i) in dash.top_risk">
-<td>{{i+1}}</td><td style="font-weight:500">{{e.name}}</td>
-<td style="font-family:monospace;font-size:.8rem">{{e.credit_code}}</td>
+<td><span class="rank-num" :class="'rank-'+(i+1)">{{i+1}}</span></td><td style="font-weight:500">{{e.name}}</td>
+<td style="font-family:var(--font-code);font-size:.8rem">{{e.credit_code}}</td>
 <td>{{e.enterprise_type==='factory'?'工厂':e.enterprise_type==='construction'?'工地':'其他'}}</td>
-<td style="font-weight:700;color:var(--red)">{{e.risk_score}}</td>
+<td style="font-weight:700;color:var(--error)">{{e.risk_score}}</td>
 <td><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span></td>
 </tr></tbody>
 </table>
@@ -112,7 +117,7 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 <div class="level-tabs">
 <div class="level-tab" :class="{active:levelFilter==='all'}" @click="levelFilter='all'">全部 ({{enterprises.total||0}})</div>
 <div class="level-tab" :class="{active:levelFilter==='红色预警'}" @click="levelFilter='红色预警'">🔴 红色预警 ({{levelCounts.red}})</div>
-<div class="level-tab" :class="{active:levelFilter==='橙色预警'}" @click="levelFilter='橙色预警'">🟠 橙色预警 ({{levelCounts.orange}})</div>
+<div class="level-tab" :class="{active:levelFilter==='绿色预警'}" @click="levelFilter='绿色预警'">🟢 绿色预警 ({{levelCounts.green}})</div>
 <div class="level-tab" :class="{active:levelFilter==='黄色预警'}" @click="levelFilter='黄色预警'">🟡 黄色预警 ({{levelCounts.yellow}})</div>
 <div class="level-tab" :class="{active:levelFilter==='蓝色预警'}" @click="levelFilter='蓝色预警'">🔵 蓝色预警 ({{levelCounts.blue}})</div>
 </div>
@@ -129,7 +134,7 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 <td style="font-family:monospace;font-size:.78rem">{{e.credit_code}}</td>
 <td>{{e.enterprise_type==='factory'?'工厂':e.enterprise_type==='construction'?'工地':'其他'}}</td>
 <td>{{e.district}}</td>
-<td style="font-weight:700" :style="{color:badgeClass(e.risk_level)==='badge-red'?'var(--red)':badgeClass(e.risk_level)==='badge-orange'?'var(--orange)':'var(--text)'}">{{e.risk_score}}</td>
+<td style="font-weight:700" :style="{color:badgeClass(e.risk_level)==='badge-red'?'var(--red)':badgeClass(e.risk_level)==='badge-green'?'var(--green)':'var(--text)'}">{{e.risk_score}}</td>
 <td><span class="badge" :class="badgeClass(e.risk_level)">{{e.risk_level}}</span></td>
 <td><span style="color:var(--red)">{{e.is_red_line?'⚠ 是':'否'}}</span></td>
 <td style="font-size:.78rem;color:var(--muted)">{{e.last_assessed_at}}</td>
@@ -142,11 +147,15 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 
 <!-- Indicators -->
 <template v-if="tab==='indicators'">
+<div class="pub-hero" style="padding:32px 0 24px">
+  <div class="pub-hero-title" style="font-size:2rem">预警指标体系</div>
+  <div class="pub-hero-desc">按领域查看预警指标、触发情况与阈值策略</div>
+</div>
 <div class="stats-grid">
-<div class="stat-card stat-blue"><div class="stat-num">{{indicatorSummary.domain_summary.length}}</div><div class="stat-label">预警维度</div></div>
+<div class="stat-card stat-total"><div class="stat-num">{{indicatorSummary.domain_summary.length}}</div><div class="stat-label">预警维度</div></div>
 <div class="stat-card stat-blue"><div class="stat-num">{{indicators.length}}</div><div class="stat-label">已配置指标</div></div>
 <div class="stat-card stat-red"><div class="stat-num">{{indicators.filter(function(i){return i.is_red_line}).length}}</div><div class="stat-label">红线指标</div></div>
-<div class="stat-card"><div class="stat-num" style="color:var(--green)">{{indicators.filter(function(i){return i.triggered_count>0}).length}}</div><div class="stat-label">已触发指标</div></div>
+<div class="stat-card stat-green"><div class="stat-num">{{indicators.filter(function(i){return i.triggered_count>0}).length}}</div><div class="stat-label">已触发指标</div></div>
 </div>
 <div class="section-panel">
 <h3>指标触发统计</h3>
@@ -161,10 +170,10 @@ td{padding:10px 12px;border-bottom:1px solid #f0f0f0}tr:hover td{background:#f8f
 <td style="font-weight:500">{{ind.name}}</td>
 <td><span style="font-size:.76rem;color:var(--muted)">{{ind.category}}</span></td>
 <td>{{ind.domain==='common'?'通用':ind.domain==='factory'?'工厂':'工地'}}</td>
-<td style="font-family:monospace;font-size:.78rem">{{ind.operator}} {{ind.threshold}}</td>
-<td style="font-weight:700" :style="{color:ind.score>=15?'var(--red)':ind.score>=10?'var(--orange)':'var(--green)'}">{{ind.score}}</td>
-<td style="color:var(--red)">{{ind.is_red_line?'⚠ 是':'否'}}</td>
-<td style="font-weight:700;color:var(--red)">{{ind.triggered_count}}</td>
+<td style="font-family:var(--font-code);font-size:.78rem">{{ind.operator}} {{ind.threshold}}</td>
+<td style="font-weight:700" :style="{color:ind.score>=15?'var(--error)':ind.score>=10?'var(--warning)':'var(--success)'}">{{ind.score}}</td>
+<td><span style="color:var(--error)">{{ind.is_red_line?'⚠ 是':'否'}}</span></td>
+<td style="font-weight:700;color:var(--error)">{{ind.triggered_count}}</td>
 <td style="font-size:.74rem;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="ind.source">{{ind.source||'—'}}</td>
 </tr></tbody>
 </table>
