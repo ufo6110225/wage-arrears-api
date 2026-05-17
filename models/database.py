@@ -75,13 +75,15 @@ def row_to_dict(row):
 
 # ==================== 企业档案 CRUD ====================
 
-def list_enterprises(risk_level=None, enterprise_type=None, search=None, page=1, page_size=50):
+def list_enterprises(risk_level=None, enterprise_type=None, search=None, district=None, page=1, page_size=50):
     conn = get_conn()
     conditions, params = [], []
     if risk_level:
         conditions.append("risk_level = ?"); params.append(risk_level)
     if enterprise_type:
         conditions.append("enterprise_type = ?"); params.append(enterprise_type)
+    if district:
+        conditions.append("district = ?"); params.append(district)
     if search:
         conditions.append("(name LIKE ? OR credit_code LIKE ?)"); params.extend([f'%{search}%', f'%{search}%'])
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -204,27 +206,19 @@ def get_assessment_history(credit_code: str, limit: int = 20):
 
 # ==================== 指标总览 ====================
 
-def get_all_indicators():
-    """获取所有指标及统计概览"""
-    import json
-    conn = get_conn()
-
-    # 统计各维度下的触发企业数
-    # 从assessment_history中获取最近一次评估的风险详情，汇总各指标触发次数
+def _load_indicator_definitions():
     indicators = {}
-
-    # 获取所有企业
-    enterprises = conn.execute("SELECT id, credit_code, enterprise_type, name FROM enterprises").fetchall()
-
+    name_to_key = {}
     rule_config = {}
     try:
         with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'rules_config.json'), 'r', encoding='utf-8') as f:
             rule_config = json.load(f)
     except:
-        pass
+        return indicators, name_to_key
 
     for domain_name, domain_cfg in rule_config.items():
-        if domain_name == 'system': continue
+        if domain_name == 'system':
+            continue
         rules = domain_cfg.get('rules', [])
         for rule in rules:
             key = rule.get('key', '')
@@ -233,36 +227,62 @@ def get_all_indicators():
                     'key': key,
                     'name': rule.get('name', ''),
                     'category': rule.get('category', ''),
+                    'five_category': rule.get('five_category', ''),
+                    'description': rule.get('description', ''),
                     'domain': domain_name,
+                    'field': rule.get('field', ''),
                     'score': rule.get('score', 0),
+                    'score_t2': rule.get('score_t2', None),
                     'is_red_line': rule.get('is_red_line', False),
                     'operator': rule.get('operator', ''),
                     'threshold': str(rule.get('threshold', '')),
+                    'threshold_t2': rule.get('threshold_t2', ''),
+                    'scoring_rule': rule.get('scoring_rule', ''),
                     'source': rule.get('source', ''),
                     'triggered_count': 0,
                     'triggered_enterprises': []
                 }
+                if rule.get('name', ''):
+                    name_to_key[rule.get('name', '')] = key
+    return indicators, name_to_key
 
-    # 遍历企业最新评估详情，统计指标触发情况
-    for ent in enterprises:
-        history = conn.execute(
-            "SELECT risk_details FROM assessment_history WHERE credit_code=? ORDER BY assessed_at DESC LIMIT 1",
-            (ent['credit_code'],)
-        ).fetchone()
-        if history:
+
+def _load_latest_assessment_rows(conn):
+    return conn.execute("""
+        SELECT ah.credit_code, ah.enterprise_name, ah.risk_details
+        FROM assessment_history ah
+        INNER JOIN (
+            SELECT credit_code, MAX(id) AS max_id
+            FROM assessment_history
+            GROUP BY credit_code
+        ) latest ON ah.id = latest.max_id
+    """).fetchall()
+
+
+def get_all_indicators():
+    """获取所有指标及统计概览"""
+    conn = get_conn()
+    indicators, name_to_key = _load_indicator_definitions()
+
+    try:
+        latest_rows = _load_latest_assessment_rows(conn)
+        for row in latest_rows:
             try:
-                details = json.loads(history['risk_details'])
-                for d in details:
-                    item_name = d.get('item_name', '')
-                    for key, ind in indicators.items():
-                        if ind['name'] == item_name:
-                            ind['triggered_count'] += 1
-                            ind['triggered_enterprises'].append(ent['name'])
-                            break
+                details = json.loads(row['risk_details'] or '[]')
             except:
-                pass
+                continue
+            enterprise_name = row['enterprise_name'] or row['credit_code']
+            for detail in details:
+                item_name = detail.get('item_name', '')
+                indicator_key = name_to_key.get(item_name)
+                if not indicator_key:
+                    continue
+                indicator = indicators[indicator_key]
+                indicator['triggered_count'] += 1
+                indicator['triggered_enterprises'].append(enterprise_name)
+    finally:
+        conn.close()
 
-    conn.close()
     return list(indicators.values())
 
 
@@ -287,16 +307,31 @@ def get_indicator_summary():
             'domain_name': domain_cfg.get('name', domain_name),
             'total_rules': len(rules),
             'red_line_count': sum(1 for r in rules if r.get('is_red_line', False)),
-            'total_score': sum(r.get('score', 0) for r in rules)
+            'total_score': sum(max(r.get('score', 0) or 0, r.get('score_t2', 0) or 0) for r in rules if not r.get('is_red_line', False))
         }
+
+    five_category_summary = {}
+    for domain_name, domain_cfg in rule_config.items():
+        if domain_name == 'system':
+            continue
+        for rule in domain_cfg.get('rules', []):
+            five_category = rule.get('five_category', '') or '未分类'
+            item = five_category_summary.setdefault(five_category, {
+                'name': five_category,
+                'rule_count': 0,
+                'red_line_count': 0
+            })
+            item['rule_count'] += 1
+            if rule.get('is_red_line', False):
+                item['red_line_count'] += 1
 
     # 获取企业评估汇总
     ent_summary = conn.execute("""
         SELECT enterprise_type, COUNT(*) as cnt,
                SUM(CASE WHEN risk_level='红色预警' THEN 1 ELSE 0 END) as red,
-               SUM(CASE WHEN risk_level='橙色预警' THEN 1 ELSE 0 END) as orange,
                SUM(CASE WHEN risk_level='黄色预警' THEN 1 ELSE 0 END) as yellow,
                SUM(CASE WHEN risk_level='蓝色预警' THEN 1 ELSE 0 END) as blue,
+               SUM(CASE WHEN risk_level='绿色预警' THEN 1 ELSE 0 END) as green,
                SUM(is_red_line) as red_line
         FROM enterprises GROUP BY enterprise_type
     """).fetchall()
@@ -309,15 +344,16 @@ def get_indicator_summary():
             'type': row['enterprise_type'],
             'total': row['cnt'],
             'red': row['red'],
-            'orange': row['orange'],
             'yellow': row['yellow'],
             'blue': row['blue'],
+            'green': row['green'] if 'green' in row.keys() else 0,
             'red_line': row['red_line']
         }
 
     return {
         'domain_summary': list(domain_summary.values()),
-        'type_summary': type_summary
+        'type_summary': type_summary,
+        'five_category_summary': list(five_category_summary.values())
     }
 
 
@@ -385,19 +421,122 @@ def get_dashboard_summary():
     total = conn.execute("SELECT COUNT(*) as c FROM enterprises").fetchone()['c']
     assessed = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_score >= 0").fetchone()['c']
     red = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_level='红色预警'").fetchone()['c']
-    orange = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_level='橙色预警'").fetchone()['c']
     yellow = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_level='黄色预警'").fetchone()['c']
     blue = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_level='蓝色预警'").fetchone()['c']
+    green = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_level='绿色预警'").fetchone()['c']
     red_line = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE is_red_line=1").fetchone()['c']
     unassessed = conn.execute("SELECT COUNT(*) as c FROM enterprises WHERE risk_score < 0").fetchone()['c']
     top10 = conn.execute("SELECT * FROM enterprises WHERE risk_score >= 0 ORDER BY risk_score DESC LIMIT 10").fetchall()
     conn.close()
     return {
         "total": total, "assessed": assessed, "unassessed": unassessed,
-        "red": red, "orange": orange, "yellow": yellow, "blue": blue,
+        "red": red, "yellow": yellow, "blue": blue, "green": green,
         "red_line_count": red_line,
         "top_risk": [row_to_dict(r) for r in top10]
     }
+
+# ==================== 增强仪表盘 ====================
+
+def get_enhanced_dashboard():
+    """获取增强仪表盘数据：月度趋势 + 街道分布 + 最新评估动态"""
+    conn = get_conn()
+
+    # 月度趋势：每月最后一天的风险等级快照
+    trend_rows = conn.execute("""
+        WITH monthly AS (
+            SELECT substr(assessed_at,1,7) as month,
+                   enterprise_id, risk_level,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY substr(assessed_at,1,7), enterprise_id
+                       ORDER BY assessed_at DESC
+                   ) as rn
+            FROM assessment_history
+            WHERE assessed_at IS NOT NULL
+        )
+        SELECT month,
+               SUM(CASE WHEN risk_level='红色预警' THEN 1 ELSE 0 END) as red,
+               SUM(CASE WHEN risk_level='黄色预警' THEN 1 ELSE 0 END) as yellow,
+               SUM(CASE WHEN risk_level='蓝色预警' THEN 1 ELSE 0 END) as blue,
+               SUM(CASE WHEN risk_level='绿色预警' THEN 1 ELSE 0 END) as green
+        FROM monthly WHERE rn=1
+        GROUP BY month ORDER BY month DESC LIMIT 12
+    """).fetchall()
+    # 替换本月数据为当前实时值
+    trend = [dict(r) for r in reversed(trend_rows)]
+    if trend:
+        current = conn.execute("""
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN risk_level='红色预警' THEN 1 ELSE 0 END) as red,
+                   SUM(CASE WHEN risk_level='黄色预警' THEN 1 ELSE 0 END) as yellow,
+                   SUM(CASE WHEN risk_level='蓝色预警' THEN 1 ELSE 0 END) as blue,
+                   SUM(CASE WHEN risk_level='绿色预警' THEN 1 ELSE 0 END) as green
+            FROM enterprises
+        """).fetchone()
+        if current:
+            trend[-1]['red'] = current['red'] or 0
+            trend[-1]['yellow'] = current['yellow'] or 0
+            trend[-1]['blue'] = current['blue'] or 0
+            trend[-1]['green'] = current['green'] or 0
+
+    # 街道分布：从 enterprises 按 district + risk_level 聚合
+    district_rows = conn.execute("""
+        SELECT district,
+               COUNT(*) as total,
+               SUM(CASE WHEN risk_level='红色预警' THEN 1 ELSE 0 END) as red,
+               SUM(CASE WHEN risk_level='黄色预警' THEN 1 ELSE 0 END) as yellow,
+               SUM(CASE WHEN risk_level='蓝色预警' THEN 1 ELSE 0 END) as blue,
+               SUM(CASE WHEN risk_level='绿色预警' THEN 1 ELSE 0 END) as green,
+               SUM(CASE WHEN risk_score < 0 THEN 1 ELSE 0 END) as unassessed
+        FROM enterprises
+        WHERE district IS NOT NULL AND district != ''
+        GROUP BY district ORDER BY total DESC
+    """).fetchall()
+    districts = [dict(r) for r in district_rows]
+
+    # 最新评估动态：最近 20 条
+    recent_rows = conn.execute("""
+        SELECT enterprise_name, risk_score, risk_level, is_red_line, assessed_at
+        FROM assessment_history
+        WHERE assessed_at IS NOT NULL
+        ORDER BY assessed_at DESC LIMIT 20
+    """).fetchall()
+    latest = []
+    for r in recent_rows:
+        d = dict(r)
+        d['is_red_line'] = bool(d.get('is_red_line', 0))
+        latest.append(d)
+
+    conn.close()
+    return {"trend": trend, "districts": districts, "latest_assessments": latest}
+
+
+def get_high_risk_indicators():
+    """获取高危指标排行：按触发企业数降序"""
+    indicators = get_all_indicators()
+    sorted_inds = sorted(indicators, key=lambda x: x.get('triggered_count', 0), reverse=True)
+    return sorted_inds[:10]
+
+
+def batch_create_enterprises(enterprises_list: list):
+    """批量创建企业"""
+    conn = get_conn()
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    created = 0
+    for data in enterprises_list:
+        try:
+            conn.execute(
+                "INSERT INTO enterprises (name,credit_code,enterprise_type,district,industry,contact_person,contact_phone,employee_count,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                (data.get('name',''), data.get('credit_code',''), data.get('enterprise_type','factory'),
+                 data.get('district',''), data.get('industry',''), data.get('contact_person',''),
+                 data.get('contact_phone',''), data.get('employee_count',0), now)
+            )
+            created += 1
+        except:
+            pass
+    conn.commit()
+    conn.close()
+    return created
+
 
 # ==================== 模拟数据 ====================
 

@@ -40,9 +40,9 @@ async def get_system_config():
     # flatten risk_thresholds for frontend compatibility
     if "risk_thresholds" in cfg:
         t = cfg.pop("risk_thresholds", {})
-        cfg["risk_red_threshold"] = t.get("red", 55)
-        cfg["risk_orange_threshold"] = t.get("orange", 40)
-        cfg["risk_yellow_threshold"] = t.get("yellow", 25)
+        cfg["risk_red_threshold"] = t.get("red", 20)
+        cfg["risk_yellow_threshold"] = t.get("yellow", 16)
+        cfg["risk_blue_threshold"] = t.get("blue", 11)
     # remove auth config from response
     cfg.pop("auth", None)
     return cfg
@@ -53,9 +53,9 @@ async def update_system_config(request: Request):
     # unflatten risk_thresholds
     if "risk_red_threshold" in data:
         data["risk_thresholds"] = {
-            "red": data.pop("risk_red_threshold", 55),
-            "orange": data.pop("risk_orange_threshold", 40),
-            "yellow": data.pop("risk_yellow_threshold", 25)
+            "red": data.pop("risk_red_threshold", 20),
+            "yellow": data.pop("risk_yellow_threshold", 16),
+            "blue": data.pop("risk_blue_threshold", 11)
         }
     # preserve auth config
     data["auth"] = c.get("system", {}).get("auth", {})
@@ -117,8 +117,8 @@ async def predict_risk(domain: str, request: Request):
 
 # === 企业管理 ===
 @app.get("/api/v1/enterprises", tags=["企业管理"])
-async def list_enterprises(risk_level: str = None, enterprise_type: str = None, search: str = None, page: int = 1, page_size: int = 50):
-    return db.list_enterprises(risk_level, enterprise_type, search, page, page_size)
+async def list_enterprises(risk_level: str = None, enterprise_type: str = None, search: str = None, district: str = None, page: int = 1, page_size: int = 50):
+    return db.list_enterprises(risk_level, enterprise_type, search, district, page, page_size)
 
 @app.post("/api/v1/enterprises", tags=["企业管理"])
 async def create_enterprise(request: Request):
@@ -136,7 +136,7 @@ async def create_enterprise(request: Request):
 async def export_enterprises(risk_level: str = None):
     """
     按风险等级导出企业数据（CSV格式）。
-    risk_level: 红色预警/橙色预警/黄色预警/蓝色预警/all（默认全部）
+    risk_level: 红色预警/黄色预警/蓝色预警/绿色预警/all（默认全部）
     """
     data = db.export_enterprises_by_level(risk_level)
 
@@ -167,9 +167,9 @@ async def export_enterprises(risk_level: str = None):
 
     safe_level = (risk_level or 'all')
     if safe_level == '红色预警': safe_level = 'red'
-    elif safe_level == '橙色预警': safe_level = 'orange'
     elif safe_level == '黄色预警': safe_level = 'yellow'
     elif safe_level == '蓝色预警': safe_level = 'blue'
+    elif safe_level == '绿色预警': safe_level = 'green'
     filename = f"wage_arrears_risk_{safe_level}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
     output = io.BytesIO()
@@ -346,11 +346,32 @@ async def get_enterprise_profile(eid: int):
         all_categories.add(rule.get('category', '其他'))
         
     radar = [{"name": c, "value": radar_data.get(c, 0)} for c in all_categories]
-    
+
+    # 构建规则名→规则定义的映射，用于补全指标明细中的字段值与阈值
+    rule_map = {}
+    for rule in common_rules + domain_rules:
+        rule_map[rule.get('name', '')] = rule
+
+    raw_data = ent.get('raw_data', {}) or {}
+    indicator_details = []
+    for detail in ent.get('risk_details', []):
+        rule = rule_map.get(detail.get('item_name', ''), {})
+        field = rule.get('field', '')
+        actual_value = raw_data.get(field, None)
+        indicator_details.append({
+            **detail,
+            'field': field,
+            'operator': rule.get('operator', ''),
+            'threshold': rule.get('threshold', ''),
+            'actual_value': actual_value,
+            'is_red_line': rule.get('is_red_line', False),
+        })
+
     return {
         "enterprise": ent,
         "history": history,
-        "radar": radar
+        "radar": radar,
+        "indicator_details": indicator_details
     }
 
 @app.post("/api/v1/enterprises/batch-assess", tags=["企业管理"])
@@ -417,8 +438,8 @@ async def export_indicators_xlsx():
             cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             cell.border = thin_border
 
-    s1_headers = ['领域', '指标标识', '指标名称', '维度分类', '数据字段',
-                  '运算符', '阈值', '分值', '是否红线', '指标说明', '触发企业数', '数据采集来源']
+    s1_headers = ['领域', '指标标识', '指标名称', '维度分类', '五维分类', '扣分规则', '数据字段',
+                  '运算符', '阈值', 'T1分值', 'T2阈值', 'T2分值', '是否红线', '指标说明', '触发企业数', '数据采集来源']
     write_header(ws1, s1_headers)
 
     domain_labels = {'common': '通用基础', 'factory': '制造业/服务业', 'construction': '工程建设'}
@@ -433,10 +454,14 @@ async def export_indicators_xlsx():
                 rule.get('key', ''),
                 rule.get('name', ''),
                 rule.get('category', ''),
+                rule.get('five_category', ''),
+                rule.get('scoring_rule', ''),
                 rule.get('field', ''),
                 rule.get('operator', ''),
                 str(rule.get('threshold', '')),
                 rule.get('score', 0),
+                str(rule.get('threshold_t2', '') if rule.get('threshold_t2', '') is not None else ''),
+                rule.get('score_t2', ''),
                 '是' if is_red else '否',
                 rule.get('description', ''),
                 triggered_map.get(rule.get('key', ''), 0),
@@ -446,7 +471,7 @@ async def export_indicators_xlsx():
                 cell = ws1.cell(row=row, column=col, value=v)
                 cell.border = thin_border
                 cell.font = Font(name='Microsoft YaHei', size=9)
-                cell.alignment = Alignment(vertical='center', wrap_text=(col == 10))
+                cell.alignment = Alignment(vertical='center', wrap_text=(col in (6, 14)))
                 if is_red:
                     cell.fill = red_fill
             row += 1
@@ -455,15 +480,19 @@ async def export_indicators_xlsx():
     ws1.column_dimensions['B'].width = 28
     ws1.column_dimensions['C'].width = 30
     ws1.column_dimensions['D'].width = 22
-    ws1.column_dimensions['E'].width = 28
-    ws1.column_dimensions['F'].width = 8
-    ws1.column_dimensions['G'].width = 12
+    ws1.column_dimensions['E'].width = 14
+    ws1.column_dimensions['F'].width = 40
+    ws1.column_dimensions['G'].width = 28
     ws1.column_dimensions['H'].width = 8
-    ws1.column_dimensions['I'].width = 10
-    ws1.column_dimensions['J'].width = 50
+    ws1.column_dimensions['I'].width = 12
+    ws1.column_dimensions['J'].width = 8
     ws1.column_dimensions['K'].width = 12
-    ws1.column_dimensions['L'].width = 28
-    ws1.auto_filter.ref = f"A1:L{row - 1}"
+    ws1.column_dimensions['L'].width = 8
+    ws1.column_dimensions['M'].width = 10
+    ws1.column_dimensions['N'].width = 50
+    ws1.column_dimensions['O'].width = 12
+    ws1.column_dimensions['P'].width = 28
+    ws1.auto_filter.ref = f"A1:P{row - 1}"
 
     # ── Sheet 2: 维度汇总 ──
     ws2 = wb.create_sheet("维度分类汇总")
@@ -482,7 +511,7 @@ async def export_indicators_xlsx():
             if rule.get('is_red_line', False):
                 category_map[k]['red_count'] += 1
             else:
-                s = rule.get('score', 0)
+                s = max(rule.get('score', 0) or 0, rule.get('score_t2', 0) or 0)
                 category_map[k]['max_score'] = max(category_map[k]['max_score'], s)
                 category_map[k]['total_score'] += s
 
@@ -591,6 +620,400 @@ async def export_by_indicator_category(category: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# === 增强仪表盘 ===
+@app.get("/api/v1/dashboard/enhanced", tags=["仪表盘"])
+async def dashboard_enhanced():
+    """增强仪表盘：月度趋势 + 街道分布 + 最新评估动态"""
+    return db.get_enhanced_dashboard()
+
+
+# === 高危指标排行 ===
+@app.get("/api/v1/indicators/high-risk", tags=["指标总览"])
+async def high_risk_indicators():
+    """按触发企业数排序的高危指标排行"""
+    return db.get_high_risk_indicators()
+
+
+# === 指标定义列表 ===
+@app.get("/api/v1/indicators/definitions", tags=["指标管理"])
+async def indicator_definitions():
+    """获取所有指标定义（从规则配置中提取）"""
+    config = load_config()
+    definitions = []
+    domain_labels = {'common': '通用基础', 'factory': '制造业/服务业', 'construction': '工程建设'}
+    for domain in ['common', 'factory', 'construction']:
+        domain_cfg = config.get(domain, {})
+        for rule in domain_cfg.get('rules', []):
+            definitions.append({
+                'key': rule.get('key', ''),
+                'name': rule.get('name', ''),
+                'domain': domain,
+                'domain_name': domain_labels.get(domain, domain),
+                'category': rule.get('category', ''),
+                'field': rule.get('field', ''),
+                'operator': rule.get('operator', ''),
+                'threshold': rule.get('threshold', ''),
+                'score': rule.get('score', 0),
+                'five_category': rule.get('five_category', ''),
+                'scoring_rule': rule.get('scoring_rule', ''),
+                'threshold_t2': rule.get('threshold_t2', ''),
+                'score_t2': rule.get('score_t2', None),
+                'is_red_line': rule.get('is_red_line', False),
+                'description': rule.get('description', ''),
+                'source': rule.get('source', ''),
+            })
+    return definitions
+
+
+# === 推送原始指标数据 (EAV格式) ===
+@app.post("/api/v1/indicators/push-raw", tags=["指标管理"], summary="推送原始指标数据（EAV格式）")
+async def push_raw_indicators(request: Request):
+    """
+    接收外部系统推送的原始指标数据（EAV格式），写入 raw_indicator_data，
+    并尝试匹配企业库中的企业。
+
+    请求体格式：
+    {
+      "data_source": "社保局",
+      "records": [
+        {"credit_code": "91440306XXXXXXXX", "indicator_key": "social_security_arrears", "value": true},
+        ...
+      ]
+    }
+    """
+    body = await request.json()
+    data_source = body.get('data_source', '外部推送')
+    records = body.get('records', [])
+
+    if not records:
+        raise HTTPException(400, "records 不能为空")
+
+    total = len(records)
+    matched = 0
+    unmatched = 0
+
+    # Group by credit_code
+    grouped = {}
+    for rec in records:
+        cc = rec.get('credit_code', '').strip()
+        if not cc:
+            continue
+        if cc not in grouped:
+            grouped[cc] = {}
+        key = rec.get('indicator_key', '')
+        value = rec.get('value')
+        if key:
+            grouped[cc][key] = value
+
+    for credit_code, indicators in grouped.items():
+        ent = db.get_enterprise_by_credit_code(credit_code)
+        if ent:
+            matched += 1
+            # Write as indicator snapshot
+            db.push_indicator_snapshot(credit_code, ent['enterprise_type'], indicators, data_source)
+        else:
+            unmatched += 1
+
+    return {
+        "message": f"原始指标推送完成",
+        "status": "success",
+        "total_records": total,
+        "unique_enterprises": len(grouped),
+        "matched": matched,
+        "unmatched": unmatched,
+        "data_source": data_source
+    }
+
+
+# === 数据库同步 ===
+@app.get("/api/v1/admin/sync", tags=["管理维护"])
+async def admin_sync():
+    """数据库同步：确保表结构存在并种入默认数据"""
+    try:
+        db.init_db()
+        db.seed_demo_data()
+        return {"message": "数据库同步完成", "status": "success"}
+    except Exception as e:
+        raise HTTPException(500, f"同步失败: {str(e)}")
+
+
+# === 模板下载 ===
+@app.get("/api/v1/templates/enterprise-registry", tags=["模板下载"])
+async def download_registry_template():
+    """下载企业名册导入模板（Excel）"""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "企业名册导入模板"
+
+    headers = ['企业名称', '统一社会信用代码', '企业类型', '所在街道', '所属行业', '联系人', '联系电话', '在册员工数']
+    hdr_font = Font(name='Microsoft YaHei', bold=True, color='FFFFFF', size=10)
+    hdr_fill = PatternFill(start_color='1A73E8', end_color='1A73E8', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin', color='DADCE0'),
+        right=Side(style='thin', color='DADCE0'),
+        top=Side(style='thin', color='DADCE0'),
+        bottom=Side(style='thin', color='DADCE0'),
+    )
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = thin_border
+
+    # 示例数据
+    example = ['示例企业名称', '91440306MA5FXXXXXX', 'factory', '新安街道', '制造业', '张三', '13800000000', 100]
+    for col, v in enumerate(example, 1):
+        cell = ws.cell(row=2, column=col, value=v)
+        cell.font = Font(name='Microsoft YaHei', size=9)
+        cell.border = thin_border
+        cell.alignment = Alignment(vertical='center')
+
+    ws.column_dimensions['A'].width = 30
+    ws.column_dimensions['B'].width = 22
+    ws.column_dimensions['C'].width = 14
+    ws.column_dimensions['D'].width = 14
+    ws.column_dimensions['E'].width = 14
+    ws.column_dimensions['F'].width = 10
+    ws.column_dimensions['G'].width = 16
+    ws.column_dimensions['H'].width = 12
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=enterprise_registry_template.xlsx"}
+    )
+
+
+@app.get("/api/v1/templates/indicator-data", tags=["模板下载"])
+async def download_indicator_template():
+    """下载指标数据导入模板（Excel）"""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "指标数据导入模板"
+
+    hdr_font = Font(name='Microsoft YaHei', bold=True, color='FFFFFF', size=10)
+    hdr_fill = PatternFill(start_color='1A73E8', end_color='1A73E8', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin', color='DADCE0'),
+        right=Side(style='thin', color='DADCE0'),
+        top=Side(style='thin', color='DADCE0'),
+        bottom=Side(style='thin', color='DADCE0'),
+    )
+
+    # Sheet 1: 使用说明
+    ws_note = wb.create_sheet("使用说明")
+    notes = [
+        ["字段名", "字段说明", "数据类型", "示例值"],
+        ["credit_code", "统一社会信用代码（必填，用于匹配企业）", "文本", "91440306MA5F1234X1"],
+        ["data_source", "数据来源标识", "文本", "社保局/税务局/法院/信访办"],
+        ["is_license_revoked", "营业执照是否被吊销", "true/false", "false"],
+        ["national_platform_weekly_complaints", "国家平台周投诉数", "整数", "0"],
+        ["platform_complaints_weekly_count", "本地平台周投诉数", "整数", "2"],
+        ["consecutive_water_arrears_cycles", "连续欠缴水费周期数", "整数", "1"],
+        ["consecutive_electricity_arrears_cycles", "连续欠缴电费周期数", "整数", "3"],
+        ["execution_case_count", "被执行人案件数", "整数", "2"],
+        ["social_security_drop_pct", "社保参保人数下降百分比", "整数", "15"],
+        ["industrial_power_drop_pct", "工业用电量下降百分比（仅制造业）", "整数", "10"],
+        ["has_no_wage_account", "是否未开立工资专户（仅工程建设）", "true/false", "false"],
+    ]
+    for i, row_data in enumerate(notes, 1):
+        for col, v in enumerate(row_data, 1):
+            cell = ws_note.cell(row=i, column=col, value=v)
+            if i == 1:
+                cell.font = hdr_font
+                cell.fill = hdr_fill
+            else:
+                cell.font = Font(name='Microsoft YaHei', size=9)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center', wrap_text=True)
+    ws_note.column_dimensions['A'].width = 35
+    ws_note.column_dimensions['B'].width = 40
+    ws_note.column_dimensions['C'].width = 18
+    ws_note.column_dimensions['D'].width = 30
+
+    # Sheet 2: 数据表
+    headers = ['credit_code', 'data_source']
+    # Add all indicator fields from rules_config.json
+    indicator_fields = []
+    config = load_config()
+    for domain in ['common', 'factory', 'construction']:
+        domain_cfg = config.get(domain, {})
+        for rule in domain_cfg.get('rules', []):
+            field = rule.get('field', '')
+            if field and field not in indicator_fields:
+                indicator_fields.append(field)
+    headers.extend(indicator_fields)
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = thin_border
+
+    # 示例数据行
+    example_row = ['91440306MA5F1234X1', '社保局'] + [''] * len(indicator_fields)
+    for col, v in enumerate(example_row, 1):
+        cell = ws.cell(row=2, column=col, value=v)
+        cell.font = Font(name='Microsoft YaHei', size=9)
+        cell.border = thin_border
+        cell.alignment = Alignment(vertical='center')
+
+    ws.column_dimensions['A'].width = 22
+    ws.column_dimensions['B'].width = 14
+    for col_idx in range(3, len(headers) + 1):
+        ws.column_dimensions[chr(64 + min(col_idx, 90))].width = 14
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=indicator_data_template.xlsx"}
+    )
+
+
+# === 上传名册 ===
+@app.post("/api/v1/enterprises/upload-registry", tags=["企业管理"])
+async def upload_registry(request: Request):
+    """上传企业名册 Excel 批量导入"""
+    import openpyxl
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type:
+        raise HTTPException(400, "请使用 multipart/form-data 上传文件")
+
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        raise HTTPException(400, "未找到上传文件")
+
+    try:
+        contents = await file.read()
+        wb = openpyxl.load_workbook(io.BytesIO(contents))
+        ws = wb.active
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+    except Exception as e:
+        raise HTTPException(400, f"Excel 解析失败: {str(e)}")
+
+    enterprises = []
+    for row in rows:
+        if not row[0] or not row[1]:
+            continue
+        enterprises.append({
+            'name': str(row[0]).strip() if row[0] else '',
+            'credit_code': str(row[1]).strip() if row[1] else '',
+            'enterprise_type': str(row[2]).strip() if len(row) > 2 and row[2] else 'factory',
+            'district': str(row[3]).strip() if len(row) > 3 and row[3] else '',
+            'industry': str(row[4]).strip() if len(row) > 4 and row[4] else '',
+            'contact_person': str(row[5]).strip() if len(row) > 5 and row[5] else '',
+            'contact_phone': str(row[6]).strip() if len(row) > 6 and row[6] else '',
+            'employee_count': int(row[7]) if len(row) > 7 and row[7] else 0,
+        })
+
+    if not enterprises:
+        raise HTTPException(400, "未在文件中找到有效企业数据")
+
+    created = db.batch_create_enterprises(enterprises)
+    skipped = len(enterprises) - created
+    return {
+        "message": f"导入完成：成功 {created} 家" + (f"，跳过 {skipped} 家（可能信用代码重复）" if skipped > 0 else ""),
+        "created": created,
+        "skipped": skipped,
+        "status": "success"
+    }
+
+
+# === 上传指标数据 ===
+@app.post("/api/v1/enterprises/upload-indicators", tags=["企业管理"])
+async def upload_indicators(request: Request):
+    """上传企业指标数据 Excel 批量导入并自动评估"""
+    import openpyxl
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type:
+        raise HTTPException(400, "请使用 multipart/form-data 上传文件")
+
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        raise HTTPException(400, "未找到上传文件")
+
+    try:
+        contents = await file.read()
+        wb = openpyxl.load_workbook(io.BytesIO(contents))
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+    except Exception as e:
+        raise HTTPException(400, f"Excel 解析失败: {str(e)}")
+
+    if len(rows) < 2:
+        raise HTTPException(400, "文件中无数据行")
+
+    headers = [str(h).strip() if h else '' for h in rows[0]]
+    results = []
+    for row in rows[1:]:
+        credit_code = str(row[0]).strip() if row[0] else ''
+        data_source = str(row[1]).strip() if len(row) > 1 and row[1] else 'Excel导入'
+        if not credit_code:
+            continue
+
+        ent = db.get_enterprise_by_credit_code(credit_code)
+        if not ent:
+            results.append({"credit_code": credit_code, "status": "not_found", "reason": "企业库中未找到"})
+            continue
+
+        indicators = {}
+        for i, h in enumerate(headers):
+            if i < 2:
+                continue
+            if i < len(row) and row[i] is not None and str(row[i]).strip():
+                val = str(row[i]).strip()
+                if val.lower() == 'true':
+                    indicators[h] = True
+                elif val.lower() == 'false':
+                    indicators[h] = False
+                else:
+                    try:
+                        indicators[h] = int(val)
+                    except ValueError:
+                        try:
+                            indicators[h] = float(val)
+                        except ValueError:
+                            indicators[h] = val
+
+        db.push_indicator_snapshot(credit_code, ent['enterprise_type'], indicators, data_source)
+        result = calculate_risk(ent['enterprise_type'], indicators)
+        details = [d.model_dump() for d in result.details]
+        db.save_assessment(ent['id'], result.total_score, result.risk_level, result.is_red_line_triggered, details, result.recommended_actions, indicators)
+        results.append({
+            "credit_code": credit_code,
+            "enterprise_name": ent['name'],
+            "status": "success",
+            "risk_score": result.total_score,
+            "risk_level": result.risk_level
+        })
+
+    success_count = sum(1 for r in results if r['status'] == 'success')
+    return {
+        "message": f"指标导入完成，成功评估 {success_count}/{len(results)} 家企业",
+        "results": results,
+        "status": "success"
+    }
 
 
 if __name__ == "__main__":
